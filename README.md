@@ -1,27 +1,29 @@
 # Mochi
 
-Ferramenta de gravação de tela para Linux com zoom automático - alternativa ao Screen Studio.
+Professional screen recording for Linux with automatic zoom. An open-source alternative to Screen Studio.
+
+[Main Screenshot Placeholder]
 
 ## Features
 
-- ✅ Gravação de tela em alta qualidade
-- ✅ Zoom automático em cliques
-- ✅ Suporte para X11 e Wayland
-- 🚧 Mouse suavizado (em desenvolvimento)
+- High quality screen recording
+- Automatic zoom on mouse clicks
+- X11 and Wayland support
+- Smooth mouse movement (Work in Progress)
 
-## Requisitos
+## Requirements
 
 - Node.js 18+
-- FFmpeg instalado no sistema
-- Linux (X11 ou Wayland)
+- FFmpeg
+- Linux (X11 or Wayland)
 
-## Instalação
+## Installation
 
 ```bash
 npm install
 ```
 
-## Desenvolvimento
+## Development
 
 ```bash
 npm run dev
@@ -33,10 +35,16 @@ npm run dev
 npm run build:linux
 ```
 
-## Como Usar
+## Usage
 
-1. Inicie o aplicativo
-2. Clique em "Iniciar Gravação"
-3. Use seu computador normalmente
-4. Clique em "Parar Gravação"
-5. O vídeo será processado automaticamente com zoom nos cliques
+1. Launch the application.
+2. Click **Start Recording**.
+3. Use your computer normally.
+4. Click **Stop Recording**.
+5. The video will be processed automatically with zoom effects applied to your clicks.
+
+<img width="1311" height="911" alt="image" src="https://github.com/user-attachments/assets/d53a07ec-282f-406c-b433-1fb9ad8a4bc2" />
+
+## License
+
+MIT
