@@ -18,6 +18,13 @@
       overflow: hidden;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       cursor: crosshair;
+      transition: background 0.2s ease;
+    }
+
+    body.dimmed {
+      background: rgba(0, 0, 0, 0.7);
+      cursor: not-allowed;
+      pointer-events: none;
     }
 
     .selection-box {
@@ -52,6 +59,11 @@
       border-radius: 8px;
       font-size: 14px;
       pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+
+    body.dimmed .hint {
+      opacity: 0;
     }
 
     .hint kbd {
@@ -72,10 +84,20 @@
     const { ipcRenderer } = require('electron');
 
     let isSelecting = false;
+    let hasStartedSelecting = false;
     let startX = 0;
     let startY = 0;
     let selectionBox = document.getElementById('selectionBox');
     let infoDiv = null;
+    let displayInfo = null;
+
+    ipcRenderer.on('display-info', (event, info) => {
+      displayInfo = info;
+    });
+
+    ipcRenderer.on('dim-overlay', () => {
+      document.body.classList.add('dimmed');
+    });
 
     function updateSelection(x, y, width, height) {
       selectionBox.style.left = x + 'px';
@@ -84,7 +106,6 @@
       selectionBox.style.height = height + 'px';
       selectionBox.style.display = 'block';
 
-      // Atualizar info
       if (!infoDiv) {
         infoDiv = document.createElement('div');
         infoDiv.className = 'selection-info';
@@ -106,8 +127,6 @@
 
       const rect = selectionBox.getBoundingClientRect();
       
-      // As coordenadas são relativas à janela
-      // O main process vai converter para absolutas
       const selection = {
         x: Math.round(rect.left),
         y: Math.round(rect.top),
@@ -127,10 +146,17 @@
     }
 
     document.addEventListener('mousedown', (e) => {
+      if (document.body.classList.contains('dimmed')) return;
+      
       isSelecting = true;
       startX = e.clientX;
       startY = e.clientY;
       updateSelection(startX, startY, 0, 0);
+
+      if (!hasStartedSelecting) {
+        hasStartedSelecting = true;
+        ipcRenderer.send('selection-started', { displayIndex: displayInfo?.displayIndex });
+      }
     });
 
     document.addEventListener('mousemove', (e) => {
@@ -158,7 +184,6 @@
       }
     });
 
-    // Prevenir contexto menu
     document.addEventListener('contextmenu', (e) => {
       e.preventDefault();
     });

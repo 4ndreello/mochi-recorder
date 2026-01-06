@@ -1,92 +1,99 @@
-const { BrowserWindow, screen } = require("electron");
+const { BrowserWindow, screen, ipcMain } = require("electron");
 const path = require("path");
 
 class AreaSelector {
   constructor() {
-    this.window = null;
+    this.windows = []; // Array de { window, display }
     this.selection = null;
+    this.callback = null;
+    this.areaSelectedHandler = null;
+    this.cancelledHandler = null;
+    this.selectionStartedHandler = null;
   }
 
   create(callback) {
-    // Obter todos os displays para cobrir toda a área de múltiplos monitores
     const displays = screen.getAllDisplays();
-    let minX = Infinity,
-      minY = Infinity,
-      maxX = -Infinity,
-      maxY = -Infinity;
-
-    displays.forEach((display) => {
-      const bounds = display.bounds;
-      minX = Math.min(minX, bounds.x);
-      minY = Math.min(minY, bounds.y);
-      maxX = Math.max(maxX, bounds.x + bounds.width);
-      maxY = Math.max(maxY, bounds.y + bounds.height);
-    });
-
-    const totalWidth = maxX - minX;
-    const totalHeight = maxY - minY;
 
     console.log("[AreaSelector] Displays detectados:");
     displays.forEach((display, i) => {
       console.log(`  Display ${i}: bounds=${JSON.stringify(display.bounds)}`);
     });
-    console.log(
-      `[AreaSelector] Área total: ${totalWidth}x${totalHeight} em (${minX}, ${minY})`
-    );
 
-    this.window = new BrowserWindow({
-      width: totalWidth,
-      height: totalHeight,
-      x: minX,
-      y: minY,
-      frame: false,
-      transparent: true,
-      alwaysOnTop: true,
-      skipTaskbar: true,
-      resizable: false,
-      movable: false,
-      webPreferences: {
-        nodeIntegration: true,
-        contextIsolation: false,
-      },
-    });
-
-    this.window.loadFile(
-      path.join(__dirname, "../../renderer/area-selector.html")
-    );
-    this.window.setIgnoreMouseEvents(false);
-
-    // Remover menu
-    this.window.setMenuBarVisibility(false);
-    this.window.setFullScreenable(false);
-
-    // Callback será chamado quando receber seleção
     this.callback = callback;
-    // Guardar offset para converter coordenadas
-    // A janela começa em (minX, minY), então as coordenadas relativas precisam ser ajustadas
-    this.windowBounds = { x: minX, y: minY };
-    console.log(
-      `[AreaSelector] windowBounds definido como: ${JSON.stringify(
-        this.windowBounds
-      )}`
-    );
 
-    // Verificar a posição real da janela após criação
-    this.window.on("ready-to-show", () => {
-      const actualBounds = this.window.getBounds();
+    // Criar uma janela para cada monitor
+    displays.forEach((display, index) => {
+      const bounds = display.bounds;
+
+      const window = new BrowserWindow({
+        width: bounds.width,
+        height: bounds.height,
+        x: bounds.x,
+        y: bounds.y,
+        frame: false,
+        transparent: true,
+        alwaysOnTop: true,
+        skipTaskbar: true,
+        resizable: false,
+        movable: false,
+        show: false,
+        webPreferences: {
+          nodeIntegration: true,
+          contextIsolation: false,
+        },
+      });
+
+      window.loadFile(
+        path.join(__dirname, "../../renderer/area-selector.html")
+      );
+      window.setIgnoreMouseEvents(false);
+      window.setMenuBarVisibility(false);
+      window.setFullScreenable(false);
+
+      window.setBounds({
+        x: bounds.x,
+        y: bounds.y,
+        width: bounds.width,
+        height: bounds.height,
+      });
+
+      window.webContents.on("did-finish-load", () => {
+        window.setBounds({
+          x: bounds.x,
+          y: bounds.y,
+          width: bounds.width,
+          height: bounds.height,
+        });
+
+        window.webContents.send("display-info", {
+          displayIndex: index,
+          displayId: display.id,
+          bounds: bounds,
+        });
+      });
+
+      this.windows.push({ window, display, index, targetBounds: bounds });
+
       console.log(
-        `[AreaSelector] Bounds reais da janela: ${JSON.stringify(actualBounds)}`
+        `[AreaSelector] Janela ${index} criada para display em (${bounds.x}, ${bounds.y}) ${bounds.width}x${bounds.height}`
       );
     });
 
-    // Listener para IPC messages do renderer
-    const { ipcMain } = require("electron");
+    this.setupIpcHandlers();
 
-    const areaSelectedHandler = (event, data) => {
-      if (event.sender === this.window.webContents) {
-        // IMPORTANTE: Usar os bounds REAIS da janela, não os esperados
-        // O Electron pode mover a janela para uma posição diferente
-        const actualBounds = this.window.getBounds();
+    return this.windows.length > 0 ? this.windows[0].window : null;
+  }
+
+  setupIpcHandlers() {
+    // Handler quando uma seleção é concluída
+    this.areaSelectedHandler = (event, data) => {
+      // Encontrar qual janela enviou o evento
+      const sourceWindow = this.windows.find(
+        (w) => w.window.webContents === event.sender
+      );
+
+      if (sourceWindow) {
+        const actualBounds = sourceWindow.window.getBounds();
 
         // Converter coordenadas relativas para absolutas
         const absoluteSelection = {
@@ -96,11 +103,10 @@ class AreaSelector {
           height: data.height,
         };
 
-        console.log("Seleção recebida:", {
+        console.log("[AreaSelector] Seleção recebida:", {
+          displayIndex: sourceWindow.index,
           relativa: data,
           absoluta: absoluteSelection,
-          windowBoundsEsperados: this.windowBounds,
-          windowBoundsReais: actualBounds,
         });
 
         this.selection = absoluteSelection;
@@ -108,45 +114,91 @@ class AreaSelector {
           this.callback(absoluteSelection);
         }
         this.close();
-        ipcMain.removeListener("area-selected", areaSelectedHandler);
-        ipcMain.removeListener("selection-cancelled", cancelledHandler);
       }
     };
 
-    const cancelledHandler = (event) => {
-      if (event.sender === this.window.webContents) {
+    // Handler quando seleção é cancelada
+    this.cancelledHandler = (event) => {
+      const sourceWindow = this.windows.find(
+        (w) => w.window.webContents === event.sender
+      );
+
+      if (sourceWindow) {
+        console.log("[AreaSelector] Seleção cancelada");
         this.close();
-        ipcMain.removeListener("area-selected", areaSelectedHandler);
-        ipcMain.removeListener("selection-cancelled", cancelledHandler);
       }
     };
 
-    ipcMain.on("area-selected", areaSelectedHandler);
-    ipcMain.on("selection-cancelled", cancelledHandler);
+    // Handler quando usuário começa a selecionar em um monitor
+    // Escurece os outros monitores
+    this.selectionStartedHandler = (event, data) => {
+      const sourceWindow = this.windows.find(
+        (w) => w.window.webContents === event.sender
+      );
 
-    return this.window;
+      if (sourceWindow) {
+        console.log(
+          `[AreaSelector] Seleção iniciada no display ${sourceWindow.index}`
+        );
+
+        // Notificar TODOS os outros monitores para escurecer
+        this.windows.forEach((w) => {
+          if (w.window.webContents !== event.sender) {
+            w.window.webContents.send("dim-overlay");
+          }
+        });
+      }
+    };
+
+    ipcMain.on("area-selected", this.areaSelectedHandler);
+    ipcMain.on("selection-cancelled", this.cancelledHandler);
+    ipcMain.on("selection-started", this.selectionStartedHandler);
+  }
+
+  removeIpcHandlers() {
+    if (this.areaSelectedHandler) {
+      ipcMain.removeListener("area-selected", this.areaSelectedHandler);
+    }
+    if (this.cancelledHandler) {
+      ipcMain.removeListener("selection-cancelled", this.cancelledHandler);
+    }
+    if (this.selectionStartedHandler) {
+      ipcMain.removeListener("selection-started", this.selectionStartedHandler);
+    }
   }
 
   show() {
-    if (this.window) {
-      this.window.show();
-      // NÃO usar fullscreen - isso pode mudar as coordenadas
-      // Apenas maximizar para cobrir toda a área virtual
-      // this.window.setFullScreen(true);
+    this.windows.forEach(({ window, index, targetBounds }) => {
+      window.setBounds({
+        x: targetBounds.x,
+        y: targetBounds.y,
+        width: targetBounds.width,
+        height: targetBounds.height,
+      });
+      window.show();
+      window.setBounds({
+        x: targetBounds.x,
+        y: targetBounds.y,
+        width: targetBounds.width,
+        height: targetBounds.height,
+      });
 
-      // Verificar posição após mostrar
-      const bounds = this.window.getBounds();
+      const actualBounds = window.getBounds();
       console.log(
-        `[AreaSelector] Janela mostrada em: ${JSON.stringify(bounds)}`
+        `[AreaSelector] Janela ${index} mostrada em: ${JSON.stringify(actualBounds)} (esperado: ${JSON.stringify(targetBounds)})`
       );
-    }
+    });
   }
 
   close() {
-    if (this.window) {
-      this.window.close();
-      this.window = null;
-    }
+    this.removeIpcHandlers();
+
+    this.windows.forEach(({ window }) => {
+      if (window && !window.isDestroyed()) {
+        window.close();
+      }
+    });
+    this.windows = [];
   }
 
   getSelection() {
