@@ -30,12 +30,21 @@
     .recording-box {
       position: fixed;
       border: none;
-      outline: 3px dashed #ff4757;
+      outline: 3px dashed #f1c40f;
       outline-offset: 4px;
       background: transparent;
       pointer-events: none;
-      animation: pulse-border 1.5s ease-in-out infinite;
       z-index: 999999;
+    }
+
+    .recording-box.ready {
+      outline-color: #f1c40f;
+      animation: none;
+    }
+
+    .recording-box.recording {
+      outline-color: #ff4757;
+      animation: pulse-border 1.5s ease-in-out infinite;
     }
 
     @keyframes pulse-border {
@@ -67,6 +76,17 @@
         recordingBox.style.width = region.width + 'px';
         recordingBox.style.height = region.height + 'px';
         recordingBox.style.display = 'block';
+        // Estado inicial é 'ready' (amarelo)
+        recordingBox.classList.add('ready');
+      }
+    });
+
+    ipcRenderer.on('set-recording-state', (event, state) => {
+      recordingBox.classList.remove('ready', 'recording');
+      if (state === 'ready') {
+        recordingBox.classList.add('ready');
+      } else if (state === 'recording') {
+        recordingBox.classList.add('recording');
       }
     });
   </script>

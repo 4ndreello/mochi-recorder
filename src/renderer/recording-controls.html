@@ -1,550 +1,1001 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Recording Controls</title>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Recording Controls</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
 
-    html, body {
-      margin: 0;
-      padding: 0;
-      background: transparent !important;
-      overflow: hidden;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      height: 100vh;
-      width: 100vw;
-    }
+            html,
+            body {
+                margin: 0;
+                padding: 0;
+                background: transparent !important;
+                overflow: hidden;
+                font-family:
+                    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                    sans-serif;
+                height: 100vh;
+                width: 100vw;
+            }
 
-    .container {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: flex-end;
-      height: 100%;
-      width: 100%;
-      padding: 4px;
-    }
+            .container {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: flex-end;
+                height: 100%;
+                width: 100%;
+                padding: 4px;
+            }
 
-    .container.position-bottom {
-      justify-content: flex-start;
-    }
+            .container.position-bottom {
+                justify-content: flex-start;
+            }
 
-    .container.position-bottom .controls-bar {
-      order: -1;
-    }
+            .container.position-bottom .controls-bar {
+                order: -1;
+            }
 
-    .action-buttons {
-      display: none;
-      gap: 6px;
-      margin-bottom: 6px;
-      animation: fadeIn 0.2s ease;
-    }
+            .action-buttons {
+                display: none;
+                gap: 6px;
+                margin-bottom: 6px;
+                animation: fadeIn 0.2s ease;
+            }
 
-    .action-buttons.visible {
-      display: flex;
-    }
+            .action-buttons.visible {
+                display: flex;
+            }
 
-    .position-bottom .action-buttons {
-      margin-bottom: 0;
-      margin-top: 6px;
-    }
+            .position-bottom .action-buttons {
+                margin-bottom: 0;
+                margin-top: 6px;
+            }
 
-    .action-btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 5px;
-      padding: 7px 12px;
-      background: rgba(40, 40, 40, 0.85);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 8px;
-      color: rgba(255, 255, 255, 0.9);
-      font-size: 11px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.15s ease;
-      white-space: nowrap;
-    }
+            .action-btn {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 5px;
+                padding: 7px 12px;
+                background: rgba(40, 40, 40, 0.85);
+                backdrop-filter: blur(12px);
+                -webkit-backdrop-filter: blur(12px);
+                border: 1px solid rgba(255, 255, 255, 0.08);
+                border-radius: 8px;
+                color: rgba(255, 255, 255, 0.9);
+                font-size: 11px;
+                font-weight: 500;
+                cursor: pointer;
+                transition: all 0.15s ease;
+                white-space: nowrap;
+            }
 
-    .action-btn:hover {
-      background: rgba(60, 60, 60, 0.9);
-      border-color: rgba(255, 255, 255, 0.15);
-      transform: translateY(-1px);
-    }
+            .action-btn:hover {
+                background: rgba(60, 60, 60, 0.9);
+                border-color: rgba(255, 255, 255, 0.15);
+                transform: translateY(-1px);
+            }
 
-    .action-btn:active {
-      transform: scale(0.97);
-    }
+            .action-btn:active {
+                transform: scale(0.97);
+            }
 
-    .action-btn.primary {
-      background: rgba(102, 126, 234, 0.85);
-      border-color: rgba(102, 126, 234, 0.4);
-    }
+            .action-btn.primary {
+                background: rgba(102, 126, 234, 0.85);
+                border-color: rgba(102, 126, 234, 0.4);
+            }
 
-    .action-btn.primary:hover {
-      background: rgba(85, 104, 211, 0.95);
-    }
+            .action-btn.primary:hover {
+                background: rgba(85, 104, 211, 0.95);
+            }
 
-    .action-btn.success {
-      background: rgba(16, 185, 129, 0.85);
-      border-color: rgba(16, 185, 129, 0.4);
-    }
+            .action-btn.success {
+                background: rgba(16, 185, 129, 0.85);
+                border-color: rgba(16, 185, 129, 0.4);
+            }
 
-    .action-btn svg {
-      width: 12px;
-      height: 12px;
-    }
+            .action-btn svg {
+                width: 12px;
+                height: 12px;
+            }
 
-    .action-btn.uploading {
-      background: rgba(80, 80, 80, 0.7);
-      cursor: not-allowed;
-    }
+            .action-btn.uploading {
+                background: rgba(80, 80, 80, 0.7);
+                cursor: not-allowed;
+            }
 
-    .action-btn .btn-spinner {
-      width: 10px;
-      height: 10px;
-      border: 2px solid rgba(255, 255, 255, 0.3);
-      border-top-color: #fff;
-      border-radius: 50%;
-      animation: spin 0.7s linear infinite;
-    }
+            .action-btn .btn-spinner {
+                width: 10px;
+                height: 10px;
+                border: 2px solid rgba(255, 255, 255, 0.3);
+                border-top-color: #fff;
+                border-radius: 50%;
+                animation: spin 0.7s linear infinite;
+            }
 
-    .error-msg {
-      display: none;
-      font-size: 10px;
-      color: #ff6b6b;
-      margin-bottom: 4px;
-      text-align: center;
-      padding: 0 8px;
-    }
+            .error-msg {
+                display: none;
+                font-size: 10px;
+                color: #ff6b6b;
+                margin-bottom: 4px;
+                text-align: center;
+                padding: 0 8px;
+            }
 
-    .error-msg.visible {
-      display: block;
-    }
+            .error-msg.visible {
+                display: block;
+            }
 
-    .controls-bar {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
-      background: rgba(25, 25, 25, 0.75);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      padding: 8px 14px;
-      border-radius: 12px;
-      border: 1px solid rgba(255, 255, 255, 0.06);
-      user-select: none;
-      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
-      position: relative;
-      overflow: hidden;
-    }
+            .controls-bar {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 12px;
+                background: rgba(25, 25, 25, 0.75);
+                backdrop-filter: blur(16px);
+                -webkit-backdrop-filter: blur(16px);
+                padding: 8px 14px;
+                border-radius: 12px;
+                border: 1px solid rgba(255, 255, 255, 0.06);
+                user-select: none;
+                box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+                position: relative;
+                overflow: hidden;
+            }
 
-    .top-progress {
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 3px;
-      background: rgba(60, 60, 60, 0.4);
-      opacity: 0;
-      transition: opacity 0.2s ease;
-    }
+            .controls-bar.draggable {
+                cursor: grab;
+                -webkit-app-region: drag;
+            }
 
-    .top-progress.visible {
-      opacity: 1;
-    }
+            .controls-bar.draggable:active {
+                cursor: grabbing;
+            }
 
-    .top-progress-fill {
-      height: 100%;
-      background: linear-gradient(90deg, #667eea, #764ba2);
-      width: 0%;
-      transition: width 0.15s ease-out;
-    }
+            .controls-bar.draggable button,
+            .controls-bar.draggable .action-btn {
+                -webkit-app-region: no-drag;
+            }
 
-    .recording-indicator {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      color: rgba(255, 255, 255, 0.95);
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.3px;
-    }
+            .drag-handle {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 0;
+                opacity: 0;
+                overflow: hidden;
+                transition: width 0.3s ease, opacity 0.3s ease, margin 0.3s ease;
+                margin-right: 0;
+            }
 
-    .recording-dot {
-      width: 8px;
-      height: 8px;
-      background: #ff4757;
-      border-radius: 50%;
-      animation: pulse 1.2s ease-in-out infinite;
-      box-shadow: 0 0 8px rgba(255, 71, 87, 0.5);
-    }
+            .controls-bar.draggable .drag-handle {
+                width: 12px;
+                opacity: 0.5;
+                margin-right: 8px;
+            }
 
-    .recording-dot.paused {
-      animation: none;
-      background: #10b981;
-      box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
-    }
+            .controls-bar.draggable .drag-handle:hover {
+                opacity: 0.8;
+            }
 
-    .recording-dot.error {
-      animation: none;
-      background: #f44336;
-      box-shadow: 0 0 8px rgba(244, 67, 54, 0.5);
-    }
+            .drag-dots {
+                display: grid;
+                grid-template-columns: repeat(2, 4px);
+                grid-template-rows: repeat(3, 4px);
+                gap: 2px;
+            }
 
-    .timer {
-      font-family: 'SF Mono', 'Monaco', 'Consolas', 'Menlo', monospace;
-      font-size: 12px;
-      color: rgba(255, 255, 255, 0.7);
-      min-width: 38px;
-      font-weight: 500;
-      font-variant-numeric: tabular-nums;
-    }
+            .drag-dots span {
+                width: 3px;
+                height: 3px;
+                background: rgba(255, 255, 255, 0.7);
+                border-radius: 50%;
+            }
 
-    .control-btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 28px;
-      height: 28px;
-      background: rgba(255, 71, 87, 0.9);
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: all 0.15s ease;
-    }
+            .top-progress {
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                height: 3px;
+                background: rgba(60, 60, 60, 0.4);
+                opacity: 0;
+                transition: opacity 0.2s ease;
+            }
 
-    .control-btn:hover {
-      background: rgba(255, 47, 63, 1);
-      transform: scale(1.08);
-    }
+            .top-progress.visible {
+                opacity: 1;
+            }
 
-    .control-btn:active {
-      transform: scale(0.95);
-    }
+            .top-progress-fill {
+                height: 100%;
+                background: linear-gradient(90deg, #667eea, #764ba2);
+                width: 0%;
+                transition: width 0.15s ease-out;
+            }
 
-    .control-btn:disabled {
-      background: rgba(80, 80, 80, 0.6);
-      cursor: not-allowed;
-      transform: none;
-    }
+            .recording-indicator {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                color: rgba(255, 255, 255, 0.95);
+                font-size: 11px;
+                font-weight: 600;
+                letter-spacing: 0.3px;
+            }
 
-    .stop-icon {
-      width: 10px;
-      height: 10px;
-      background: #fff;
-      border-radius: 2px;
-    }
+            .recording-dot {
+                width: 8px;
+                height: 8px;
+                background: #ff4757;
+                border-radius: 50%;
+                animation: pulse 1.2s ease-in-out infinite;
+                box-shadow: 0 0 8px rgba(255, 71, 87, 0.5);
+            }
 
-    .close-button {
-      display: none;
-      align-items: center;
-      justify-content: center;
-      width: 28px;
-      height: 28px;
-      background: rgba(60, 60, 60, 0.8);
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: all 0.15s ease;
-    }
+            .recording-dot.ready {
+                animation: none;
+                background: #f1c40f;
+                box-shadow: 0 0 8px rgba(241, 196, 15, 0.5);
+            }
 
-    .close-button.visible {
-      display: flex;
-    }
+            .recording-dot.paused {
+                animation: none;
+                background: #10b981;
+                box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+            }
 
-    .close-button:hover {
-      background: rgba(80, 80, 80, 0.9);
-    }
+            .recording-dot.error {
+                animation: none;
+                background: #f44336;
+                box-shadow: 0 0 8px rgba(244, 67, 54, 0.5);
+            }
 
-    .close-button svg {
-      width: 12px;
-      height: 12px;
-      stroke: rgba(255, 255, 255, 0.7);
-      stroke-width: 2;
-    }
+            .timer {
+                font-family:
+                    "SF Mono", "Monaco", "Consolas", "Menlo", monospace;
+                font-size: 12px;
+                color: rgba(255, 255, 255, 0.7);
+                min-width: 38px;
+                font-weight: 500;
+                font-variant-numeric: tabular-nums;
+            }
 
-    .processing-status {
-      display: none;
-      align-items: center;
-      gap: 6px;
-      color: rgba(255, 255, 255, 0.6);
-      font-size: 10px;
-      margin-bottom: 4px;
-    }
+            .audio-meter {
+                width: 4px;
+                height: 20px;
+                background: rgba(60, 60, 60, 0.6);
+                border-radius: 2px;
+                overflow: hidden;
+                display: flex;
+                flex-direction: column-reverse;
+                opacity: 0;
+                transition: opacity 0.3s ease, width 0.3s ease;
+            }
 
-    .processing-status.visible {
-      display: flex;
-    }
+            .audio-meter.visible {
+                opacity: 1;
+            }
 
-    .spinner {
-      width: 12px;
-      height: 12px;
-      border: 2px solid rgba(60, 60, 60, 0.5);
-      border-top-color: #667eea;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
+            .meter-bar {
+                width: 100%;
+                height: 0%;
+                background: linear-gradient(to top, #10b981 0%, #10b981 60%, #f1c40f 80%, #ff4757 100%);
+                border-radius: 2px;
+                transition: height 0.05s ease-out;
+            }
 
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
+            .control-btn {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 28px;
+                height: 28px;
+                background: rgba(255, 71, 87, 0.9);
+                border: none;
+                border-radius: 8px;
+                cursor: pointer;
+                transition: all 0.15s ease;
+            }
 
-    @keyframes pulse {
-      0%, 100% { 
-        opacity: 1;
-        transform: scale(1);
-      }
-      50% { 
-        opacity: 0.5;
-        transform: scale(0.9);
-      }
-    }
+            .control-btn:hover {
+                background: rgba(255, 47, 63, 1);
+                transform: scale(1.08);
+            }
 
-    @keyframes fadeIn {
-      from { 
-        opacity: 0; 
-        transform: translateY(4px); 
-      }
-      to { 
-        opacity: 1; 
-        transform: translateY(0); 
-      }
-    }
-  </style>
-</head>
-<body>
-  <div class="container" id="container">
-    <div class="processing-status" id="processingStatus">
-      <div class="spinner"></div>
-      <span>Processando...</span>
-    </div>
+            .control-btn:active {
+                transform: scale(0.95);
+            }
 
-    <div class="action-buttons" id="actionButtons">
-      <button class="action-btn" id="btnCopy" title="Copiar para transferência">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-        </svg>
-        Copiar
-      </button>
-      <button class="action-btn primary" id="btnUpload" title="Upload na internet">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-          <polyline points="17 8 12 3 7 8"></polyline>
-          <line x1="12" y1="3" x2="12" y2="15"></line>
-        </svg>
-        Upload
-      </button>
-    </div>
+            .control-btn:disabled {
+                background: rgba(80, 80, 80, 0.6);
+                cursor: not-allowed;
+                transform: none;
+            }
 
+            .control-btn.start-btn {
+                background: rgba(16, 185, 129, 0.9);
+            }
 
+            .control-btn.start-btn:hover {
+                background: rgba(5, 150, 105, 1);
+                transform: scale(1.08);
+            }
 
-    <div class="error-msg" id="errorMsg"></div>
+            .start-icon {
+                width: 0;
+                height: 0;
+                border-left: 8px solid #fff;
+                border-top: 5px solid transparent;
+                border-bottom: 5px solid transparent;
+                margin-left: 2px;
+            }
 
-    <div class="controls-bar">
-      <div class="top-progress" id="topProgress">
-        <div class="top-progress-fill" id="topProgressFill"></div>
-      </div>
-      <div class="recording-indicator">
-        <div class="recording-dot" id="recordingDot"></div>
-        <span id="recLabel">REC</span>
-      </div>
-      <div class="timer" id="timer">0:00</div>
-      <button class="control-btn" id="stopButton" title="Parar gravação">
-        <div class="stop-icon"></div>
-      </button>
-      <button class="close-button" id="closeButton" title="Fechar (ESC)">
-        <svg viewBox="0 0 24 24" fill="none">
-          <line x1="18" y1="6" x2="6" y2="18"></line>
-          <line x1="6" y1="6" x2="18" y2="18"></line>
-        </svg>
-      </button>
-    </div>
-  </div>
+            .control-btn .btn-spinner {
+                width: 12px;
+                height: 12px;
+                border: 2px solid rgba(255, 255, 255, 0.3);
+                border-top-color: #fff;
+                border-radius: 50%;
+                animation: spin 0.7s linear infinite;
+            }
 
-  <script>
-    const { ipcRenderer, clipboard } = require('electron');
+            .mic-btn {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 28px;
+                height: 28px;
+                border: none;
+                border-radius: 8px;
+                cursor: pointer;
+                transition: all 0.15s ease;
+            }
 
-    const container = document.getElementById('container');
-    const stopButton = document.getElementById('stopButton');
-    const closeButton = document.getElementById('closeButton');
-    const timerElement = document.getElementById('timer');
-    const recordingDot = document.getElementById('recordingDot');
-    const recLabel = document.getElementById('recLabel');
-    const processingStatus = document.getElementById('processingStatus');
-    const actionButtons = document.getElementById('actionButtons');
-    const btnCopy = document.getElementById('btnCopy');
-    const btnUpload = document.getElementById('btnUpload');
-    const topProgress = document.getElementById('topProgress');
-    const topProgressFill = document.getElementById('topProgressFill');
-    const errorMsg = document.getElementById('errorMsg');
-    
-    const uploadBtnOriginalHtml = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            .mic-btn.muted {
+                background: rgba(80, 80, 80, 0.8);
+            }
+
+            .mic-btn.unmuted {
+                background: rgba(76, 175, 80, 0.9);
+            }
+
+            .mic-btn:hover {
+                transform: scale(1.08);
+            }
+
+            .mic-btn.muted:hover {
+                background: rgba(100, 100, 100, 0.9);
+            }
+
+            .mic-btn.unmuted:hover {
+                background: rgba(67, 160, 71, 1);
+            }
+
+            .mic-btn:active {
+                transform: scale(0.95);
+            }
+
+            .mic-btn.disabled {
+                opacity: 0.4;
+                cursor: not-allowed;
+                pointer-events: none;
+            }
+
+            .mic-btn svg {
+                width: 14px;
+                height: 14px;
+                stroke: white;
+                stroke-width: 2;
+                fill: none;
+            }
+
+            .mic-btn.muted .mic-icon-on {
+                display: none;
+            }
+
+            .mic-btn.muted .mic-icon-off {
+                display: block;
+            }
+
+            .mic-btn.unmuted .mic-icon-on {
+                display: block;
+            }
+
+            .mic-btn.unmuted .mic-icon-off {
+                display: none;
+            }
+
+            .stop-icon {
+                width: 10px;
+                height: 10px;
+                background: #fff;
+                border-radius: 2px;
+            }
+
+            .close-button {
+                display: none;
+                align-items: center;
+                justify-content: center;
+                width: 28px;
+                height: 28px;
+                background: rgba(60, 60, 60, 0.8);
+                border: none;
+                border-radius: 8px;
+                cursor: pointer;
+                transition: all 0.15s ease;
+            }
+
+            .close-button.visible {
+                display: flex;
+            }
+
+            .close-button:hover {
+                background: rgba(80, 80, 80, 0.9);
+            }
+
+            .close-button svg {
+                width: 12px;
+                height: 12px;
+                stroke: rgba(255, 255, 255, 0.7);
+                stroke-width: 2;
+            }
+
+            .processing-status {
+                display: none;
+                align-items: center;
+                gap: 6px;
+                color: rgba(255, 255, 255, 0.6);
+                font-size: 10px;
+                margin-bottom: 4px;
+            }
+
+            .processing-status.visible {
+                display: flex;
+            }
+
+            .spinner {
+                width: 12px;
+                height: 12px;
+                border: 2px solid rgba(60, 60, 60, 0.5);
+                border-top-color: #667eea;
+                border-radius: 50%;
+                animation: spin 0.8s linear infinite;
+            }
+
+            @keyframes spin {
+                to {
+                    transform: rotate(360deg);
+                }
+            }
+
+            @keyframes pulse {
+                0%,
+                100% {
+                    opacity: 1;
+                    transform: scale(1);
+                }
+                50% {
+                    opacity: 0.5;
+                    transform: scale(0.9);
+                }
+            }
+
+            @keyframes fadeIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(4px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container" id="container">
+            <div class="processing-status" id="processingStatus">
+                <div class="spinner"></div>
+                <span>Processando...</span>
+            </div>
+
+            <div class="action-buttons" id="actionButtons">
+                <button
+                    class="action-btn"
+                    id="btnCopy"
+                    title="Copiar para transferência"
+                >
+                    <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                    >
+                        <rect
+                            x="9"
+                            y="9"
+                            width="13"
+                            height="13"
+                            rx="2"
+                            ry="2"
+                        ></rect>
+                        <path
+                            d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
+                        ></path>
+                    </svg>
+                    Copiar
+                </button>
+                <button
+                    class="action-btn primary"
+                    id="btnUpload"
+                    title="Upload na internet"
+                >
+                    <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                    >
+                        <path
+                            d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"
+                        ></path>
+                        <polyline points="17 8 12 3 7 8"></polyline>
+                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                    Upload
+                </button>
+            </div>
+
+            <div class="error-msg" id="errorMsg"></div>
+
+            <div class="controls-bar">
+                <div class="drag-handle" id="dragHandle">
+                    <div class="drag-dots">
+                        <span></span><span></span>
+                        <span></span><span></span>
+                        <span></span><span></span>
+                    </div>
+                </div>
+                <div class="top-progress" id="topProgress">
+                    <div class="top-progress-fill" id="topProgressFill"></div>
+                </div>
+                <div class="recording-indicator">
+                    <div class="recording-dot" id="recordingDot"></div>
+                    <span id="recLabel">REC</span>
+                </div>
+                <div class="timer" id="timer">0:00</div>
+                <div class="audio-meter" id="audioMeter">
+                    <div class="meter-bar" id="meterBar"></div>
+                </div>
+                <button
+                    class="mic-btn muted"
+                    id="micButton"
+                    title="Alternar microfone"
+                >
+                    <svg class="mic-icon-on" viewBox="0 0 24 24">
+                        <path
+                            d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"
+                        />
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                        <line x1="12" y1="19" x2="12" y2="23" />
+                        <line x1="8" y1="23" x2="16" y2="23" />
+                    </svg>
+                    <svg class="mic-icon-off" viewBox="0 0 24 24">
+                        <path
+                            d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"
+                        />
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                        <line x1="12" y1="19" x2="12" y2="23" />
+                        <line x1="8" y1="23" x2="16" y2="23" />
+                        <line
+                            x1="2"
+                            y1="2"
+                            x2="22"
+                            y2="22"
+                            stroke-width="2.5"
+                        />
+                    </svg>
+                </button>
+                <button
+                    class="control-btn start-btn"
+                    id="startButton"
+                    title="Iniciar gravação"
+                >
+                    <div class="start-icon"></div>
+                </button>
+                <button
+                    class="control-btn"
+                    id="stopButton"
+                    title="Parar gravação"
+                    style="display: none"
+                >
+                    <div class="stop-icon"></div>
+                </button>
+                <button
+                    class="close-button"
+                    id="closeButton"
+                    title="Fechar (ESC)"
+                >
+                    <svg viewBox="0 0 24 24" fill="none">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <script>
+            const { ipcRenderer, clipboard } = require("electron");
+
+            const container = document.getElementById("container");
+            const startButton = document.getElementById("startButton");
+            const stopButton = document.getElementById("stopButton");
+            const closeButton = document.getElementById("closeButton");
+            const timerElement = document.getElementById("timer");
+            const recordingDot = document.getElementById("recordingDot");
+            const recLabel = document.getElementById("recLabel");
+            const processingStatus =
+                document.getElementById("processingStatus");
+            const actionButtons = document.getElementById("actionButtons");
+            const btnCopy = document.getElementById("btnCopy");
+            const btnUpload = document.getElementById("btnUpload");
+            const topProgress = document.getElementById("topProgress");
+            const topProgressFill = document.getElementById("topProgressFill");
+            const errorMsg = document.getElementById("errorMsg");
+            const micButton = document.getElementById("micButton");
+
+            let isMicEnabled = false;
+            let recordingState = "ready";
+
+            const uploadBtnOriginalHtml = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
           <polyline points="17 8 12 3 7 8"></polyline>
           <line x1="12" y1="3" x2="12" y2="15"></line>
         </svg>
         Upload`;
 
-    let startTime = Date.now();
-    let timerInterval = null;
-    let videoPath = '';
-    let isRecording = true;
-    let canClose = false;
+            let startTime = null;
+            let timerInterval = null;
+            let videoPath = "";
+            let uploadedUrl = null;
+            let isRecording = false;
+            let canClose = true;
+            
+            let audioContext = null;
+            let analyser = null;
+            let microphone = null;
+            let animationId = null;
+            const audioMeter = document.getElementById("audioMeter");
+            const meterBar = document.getElementById("meterBar");
 
-    function updateTimer() {
-      const elapsed = Math.floor((Date.now() - startTime) / 1000);
-      const minutes = Math.floor(elapsed / 60);
-      const seconds = elapsed % 60;
-      timerElement.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-    }
+            async function startAudioMeter() {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    analyser = audioContext.createAnalyser();
+                    microphone = audioContext.createMediaStreamSource(stream);
+                    
+                    analyser.fftSize = 256;
+                    analyser.smoothingTimeConstant = 0.8;
+                    microphone.connect(analyser);
+                    
+                    audioMeter.classList.add("visible");
+                    updateMeter();
+                } catch (err) {
+                    console.log("Não foi possível acessar o microfone:", err);
+                }
+            }
 
-    timerInterval = setInterval(updateTimer, 1000);
+            function updateMeter() {
+                if (!analyser) return;
+                
+                const dataArray = new Uint8Array(analyser.frequencyBinCount);
+                analyser.getByteFrequencyData(dataArray);
+                
+                let sum = 0;
+                for (let i = 0; i < dataArray.length; i++) {
+                    sum += dataArray[i];
+                }
+                const average = sum / dataArray.length;
+                const level = Math.min(100, (average / 128) * 100);
+                
+                meterBar.style.height = level + "%";
+                
+                animationId = requestAnimationFrame(updateMeter);
+            }
 
-    function closeOverlay() {
-      if (canClose) {
-        ipcRenderer.send('close-recording-overlay');
-      }
-    }
+            function stopAudioMeter() {
+                if (animationId) {
+                    cancelAnimationFrame(animationId);
+                    animationId = null;
+                }
+                if (microphone) {
+                    microphone.disconnect();
+                    microphone = null;
+                }
+                if (audioContext) {
+                    audioContext.close();
+                    audioContext = null;
+                }
+                analyser = null;
+                audioMeter.classList.remove("visible");
+                meterBar.style.height = "0%";
+            }
 
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        closeOverlay();
-      }
-    });
+            // Estado inicial: ready (amarelo, pronto para gravar)
+            function initReadyState() {
+                recordingState = "ready";
+                recordingDot.classList.add("ready");
+                recLabel.textContent = "AGUARDANDO";
+                timerElement.textContent = "0:00";
+                startButton.style.display = "flex";
+                stopButton.style.display = "none";
+                closeButton.classList.add("visible");
+                canClose = true;
+            }
 
-    ipcRenderer.on('position-side', (event, side) => {
-      if (side === 'bottom') {
-        container.classList.add('position-bottom');
-      }
-    });
+            initReadyState();
 
-    ipcRenderer.on('controls-expanded', (event, side) => {
-      container.style.opacity = '1';
-    });
+            function updateTimer() {
+                if (!startTime) return;
+                const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                const minutes = Math.floor(elapsed / 60);
+                const seconds = elapsed % 60;
+                timerElement.textContent = `${minutes}:${seconds.toString().padStart(2, "0")}`;
+            }
 
-    stopButton.addEventListener('click', () => {
-      if (!isRecording) return;
-      
-      isRecording = false;
-      
-      if (timerInterval) {
-        clearInterval(timerInterval);
-        timerInterval = null;
-      }
-      
-      recordingDot.classList.add('paused');
-      recLabel.textContent = 'OK';
-      stopButton.disabled = true;
-      
-      processingStatus.classList.add('visible');
-      
-      ipcRenderer.send('expand-controls');
-      ipcRenderer.send('stop-recording-clicked');
-    });
+            async function initMicStatus() {
+                const status = await ipcRenderer.invoke(
+                    "get-microphone-status",
+                );
+                isMicEnabled = status.useMicrophone;
+                updateMicUI();
+            }
 
-    ipcRenderer.on('recording-finished', (event, data) => {
-      console.log('[CONTROLS] recording-finished recebido:', data);
-      videoPath = data.path;
-      canClose = true;
-      
-      processingStatus.classList.remove('visible');
-      actionButtons.classList.add('visible');
-      closeButton.classList.add('visible');
-      stopButton.style.display = 'none';
-    });
+            function updateMicUI() {
+                if (isMicEnabled) {
+                    micButton.classList.remove("muted");
+                    micButton.classList.add("unmuted");
+                    micButton.title = "Microfone ligado";
+                    startAudioMeter();
+                } else {
+                    micButton.classList.remove("unmuted");
+                    micButton.classList.add("muted");
+                    micButton.title = "Microfone desligado";
+                    stopAudioMeter();
+                }
+            }
 
-    ipcRenderer.on('recording-error', (event, data) => {
-      console.log('[CONTROLS] recording-error recebido:', data);
-      canClose = true;
-      
-      processingStatus.classList.remove('visible');
-      recordingDot.classList.remove('paused');
-      recordingDot.classList.add('error');
-      recLabel.textContent = 'ERRO';
-      
-      errorMsg.textContent = data.error || 'Erro desconhecido';
-      errorMsg.classList.add('visible');
-      
-      closeButton.classList.add('visible');
-      stopButton.style.display = 'none';
-    });
+            micButton.addEventListener("click", async () => {
+                // Só permite alterar microfone no estado ready
+                if (recordingState !== "ready") return;
 
-    btnCopy.addEventListener('click', async () => {
-      try {
-        errorMsg.classList.remove('visible');
-        const originalHtml = btnCopy.innerHTML;
-        btnCopy.disabled = true;
-        
-        await ipcRenderer.invoke('copy-file-to-clipboard', videoPath);
-        
-        btnCopy.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> OK`;
-        btnCopy.classList.add('success');
-        
-        setTimeout(() => {
-          btnCopy.innerHTML = originalHtml;
-          btnCopy.classList.remove('success');
-          btnCopy.disabled = false;
-        }, 1500);
-      } catch (e) {
-        errorMsg.textContent = e.message;
-        errorMsg.classList.add('visible');
-        btnCopy.disabled = false;
-      }
-    });
+                const result = await ipcRenderer.invoke("toggle-microphone");
+                isMicEnabled = result.useMicrophone;
+                updateMicUI();
+            });
 
-    btnUpload.addEventListener('click', async () => {
-      try {
-        errorMsg.classList.remove('visible');
-        
-        // Mostrar estado de "Subindo..."
-        btnUpload.innerHTML = `<div class="btn-spinner"></div> Subindo...`;
-        btnUpload.classList.add('uploading');
-        btnUpload.classList.remove('primary');
-        btnUpload.disabled = true;
-        btnCopy.disabled = true;
-        
-        // Mostrar barra de progresso no topo
-        topProgress.classList.add('visible');
-        topProgressFill.style.width = '0%';
-        
-        const result = await ipcRenderer.invoke('upload-to-catbox', videoPath);
-        
-        clipboard.writeText(result.url);
-        
-        // Esconder barra e mostrar sucesso
-        topProgress.classList.remove('visible');
-        btnUpload.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Copiado!`;
-        btnUpload.classList.remove('uploading');
-        btnUpload.classList.add('success');
-        btnCopy.disabled = false;
-      } catch (e) {
-        // Restaurar estado original em caso de erro
-        topProgress.classList.remove('visible');
-        btnUpload.innerHTML = uploadBtnOriginalHtml;
-        btnUpload.classList.remove('uploading');
-        btnUpload.classList.add('primary');
-        btnUpload.disabled = false;
-        btnCopy.disabled = false;
-        errorMsg.textContent = e.message;
-        errorMsg.classList.add('visible');
-      }
-    });
+            initMicStatus();
 
-    ipcRenderer.on('upload-progress', (event, progress) => {
-      topProgressFill.style.width = progress + '%';
-    });
+            // Evento: usuário clica no botão de iniciar gravação
+            startButton.addEventListener("click", () => {
+                if (recordingState !== "ready") return;
 
-    closeButton.addEventListener('click', closeOverlay);
-  </script>
-</body>
+                recordingState = "starting";
+                canClose = false;
+                
+                startButton.disabled = true;
+                startButton.innerHTML = '<div class="btn-spinner"></div>';
+                micButton.classList.add("disabled");
+                closeButton.classList.remove("visible");
+                recLabel.textContent = "INICIANDO...";
+
+                ipcRenderer.send("start-recording-clicked");
+            });
+
+            // Evento: gravação realmente iniciou (confirmação do main)
+            ipcRenderer.on("recording-started", () => {
+                recordingState = "recording";
+                isRecording = true;
+                canClose = false;
+
+                recordingDot.classList.remove("ready");
+                recLabel.textContent = "REC";
+
+                startButton.style.display = "none";
+                startButton.disabled = false;
+                startButton.innerHTML = '<div class="start-icon"></div>';
+                stopButton.style.display = "flex";
+                closeButton.classList.remove("visible");
+
+                micButton.classList.add("disabled");
+
+                startTime = Date.now();
+                timerInterval = setInterval(updateTimer, 1000);
+            });
+
+            function closeOverlay() {
+                if (canClose) {
+                    stopAudioMeter();
+                    if (recordingState === "ready") {
+                        ipcRenderer.send("cancel-recording-overlay");
+                    } else {
+                        ipcRenderer.send("close-recording-overlay");
+                    }
+                }
+            }
+
+            document.addEventListener("keydown", (e) => {
+                if (e.key === "Escape") {
+                    closeOverlay();
+                }
+            });
+
+            ipcRenderer.on("position-side", (event, side) => {
+                if (side === "bottom") {
+                    container.classList.add("position-bottom");
+                }
+            });
+
+            ipcRenderer.on("controls-expanded", (event, side) => {
+                container.style.opacity = "1";
+            });
+
+            stopButton.addEventListener("click", () => {
+                if (!isRecording) return;
+
+                isRecording = false;
+
+                if (timerInterval) {
+                    clearInterval(timerInterval);
+                    timerInterval = null;
+                }
+
+                recordingDot.classList.add("paused");
+                recLabel.textContent = "OK";
+                stopButton.disabled = true;
+
+                processingStatus.classList.add("visible");
+
+                ipcRenderer.send("expand-controls");
+                ipcRenderer.send("stop-recording-clicked");
+            });
+
+            ipcRenderer.on("recording-finished", (event, data) => {
+                console.log("[CONTROLS] recording-finished recebido:", data);
+                videoPath = data.path;
+                canClose = true;
+
+                stopAudioMeter();
+                processingStatus.classList.remove("visible");
+                actionButtons.classList.add("visible");
+                closeButton.classList.add("visible");
+                stopButton.style.display = "none";
+                
+                const controlsBar = document.querySelector(".controls-bar");
+                controlsBar.classList.add("draggable");
+                ipcRenderer.send("enable-window-drag");
+            });
+
+            ipcRenderer.on("recording-error", (event, data) => {
+                console.log("[CONTROLS] recording-error recebido:", data);
+                canClose = true;
+
+                stopAudioMeter();
+                processingStatus.classList.remove("visible");
+                recordingDot.classList.remove("paused");
+                recordingDot.classList.add("error");
+                recLabel.textContent = "ERRO";
+
+                errorMsg.textContent = data.error || "Erro desconhecido";
+                errorMsg.classList.add("visible");
+
+                closeButton.classList.add("visible");
+                stopButton.style.display = "none";
+                
+                const controlsBar = document.querySelector(".controls-bar");
+                controlsBar.classList.add("draggable");
+                ipcRenderer.send("enable-window-drag");
+            });
+
+            btnCopy.addEventListener("click", async () => {
+                try {
+                    errorMsg.classList.remove("visible");
+                    const originalHtml = btnCopy.innerHTML;
+                    btnCopy.disabled = true;
+
+                    await ipcRenderer.invoke(
+                        "copy-file-to-clipboard",
+                        videoPath,
+                    );
+
+                    btnCopy.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> OK`;
+                    btnCopy.classList.add("success");
+
+                    setTimeout(() => {
+                        btnCopy.innerHTML = originalHtml;
+                        btnCopy.classList.remove("success");
+                        btnCopy.disabled = false;
+                    }, 1500);
+                } catch (e) {
+                    errorMsg.textContent = e.message;
+                    errorMsg.classList.add("visible");
+                    btnCopy.disabled = false;
+                }
+            });
+
+            btnUpload.addEventListener("click", async () => {
+                if (uploadedUrl) {
+                    clipboard.writeText(uploadedUrl);
+                    btnUpload.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Copiado!`;
+                    btnUpload.classList.add("success");
+                    btnUpload.classList.remove("primary");
+                    
+                    setTimeout(() => {
+                        btnUpload.innerHTML = uploadBtnOriginalHtml;
+                        btnUpload.classList.remove("success");
+                        btnUpload.classList.add("primary");
+                    }, 1500);
+                    return;
+                }
+                
+                try {
+                    errorMsg.classList.remove("visible");
+
+                    btnUpload.innerHTML = `<div class="btn-spinner"></div> Subindo...`;
+                    btnUpload.classList.add("uploading");
+                    btnUpload.classList.remove("primary");
+                    btnUpload.disabled = true;
+                    btnCopy.disabled = true;
+
+                    topProgress.classList.add("visible");
+                    topProgressFill.style.width = "0%";
+
+                    const result = await ipcRenderer.invoke(
+                        "upload-to-catbox",
+                        videoPath,
+                    );
+
+                    uploadedUrl = result.url;
+                    clipboard.writeText(uploadedUrl);
+
+                    topProgress.classList.remove("visible");
+                    btnUpload.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Copiado!`;
+                    btnUpload.classList.remove("uploading");
+                    btnUpload.classList.add("success");
+                    btnCopy.disabled = false;
+                    
+                    setTimeout(() => {
+                        btnUpload.innerHTML = uploadBtnOriginalHtml;
+                        btnUpload.classList.remove("success");
+                        btnUpload.classList.add("primary");
+                        btnUpload.disabled = false;
+                    }, 1500);
+                } catch (e) {
+                    topProgress.classList.remove("visible");
+                    btnUpload.innerHTML = uploadBtnOriginalHtml;
+                    btnUpload.classList.remove("uploading");
+                    btnUpload.classList.add("primary");
+                    btnUpload.disabled = false;
+                    btnCopy.disabled = false;
+                    errorMsg.textContent = e.message;
+                    errorMsg.classList.add("visible");
+                }
+            });
+
+            ipcRenderer.on("upload-progress", (event, progress) => {
+                topProgressFill.style.width = progress + "%";
+            });
+
+            closeButton.addEventListener("click", closeOverlay);
+        </script>
+    </body>
 </html>

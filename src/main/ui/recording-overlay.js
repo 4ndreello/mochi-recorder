@@ -6,11 +6,11 @@ class RecordingOverlay {
     this.borderWindow = null;
     this.controlsWindow = null;
     this.region = null;
-    this.controlsWidth = 200;
+    this.controlsWidth = 340;
     this.controlsHeight = 44;
     this.expandedControlsWidth = 320;
     this.expandedControlsHeight = 110;
-    this.positionSide = 'top'; // 'top' | 'bottom' | 'inside'
+    this.positionSide = "top";
     this.controlsGap = 12;
   }
 
@@ -21,30 +21,30 @@ class RecordingOverlay {
   calculateControlsPosition(region, width, height) {
     const display = screen.getDisplayMatching(region);
     const screenBounds = display.bounds;
-    
+
     let x = region.x + Math.floor(region.width / 2) - Math.floor(width / 2);
     let y = region.y - height - this.controlsGap;
-    let side = 'top';
+    let side = "top";
 
     // Verifica se está saindo pelo topo
     if (y < screenBounds.y) {
       // Tenta posicionar abaixo da região
       y = region.y + region.height + this.controlsGap;
-      side = 'bottom';
-      
+      side = "bottom";
+
       // Verifica se está saindo pela parte inferior
       if (y + height > screenBounds.y + screenBounds.height) {
         // Posiciona dentro da região (no rodapé interno)
         y = region.y + region.height - height - this.controlsGap;
-        side = 'inside';
+        side = "inside";
       }
     }
-    
+
     // Ajuste horizontal - não permitir que saia das bordas laterais
     const minX = screenBounds.x + 10;
     const maxX = screenBounds.x + screenBounds.width - width - 10;
     x = Math.max(minX, Math.min(x, maxX));
-    
+
     return { x: Math.round(x), y: Math.round(y), side };
   }
 
@@ -54,7 +54,10 @@ class RecordingOverlay {
     this.regionAbsolute = region;
 
     const displays = screen.getAllDisplays();
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity;
 
     displays.forEach((display) => {
       const bounds = display.bounds;
@@ -82,7 +85,7 @@ class RecordingOverlay {
       hasShadow: false,
       backgroundColor: "#00000000",
       enableLargerThanScreen: true,
-      type: 'toolbar',
+      type: "toolbar",
       thickFrame: false,
       webPreferences: {
         nodeIntegration: true,
@@ -91,19 +94,26 @@ class RecordingOverlay {
     });
 
     this.borderWindow.loadFile(
-      path.join(__dirname, "../../renderer/recording-border.html")
+      path.join(__dirname, "../../renderer/recording-border.html"),
     );
     this.borderWindow.setIgnoreMouseEvents(true);
     this.borderWindow.setMenuBarVisibility(false);
-    this.borderWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-    this.borderWindow.setAlwaysOnTop(true, 'screen-saver');
+    this.borderWindow.setVisibleOnAllWorkspaces(true, {
+      visibleOnFullScreen: true,
+    });
+    this.borderWindow.setAlwaysOnTop(true, "screen-saver");
 
-    this.expectedBounds = { x: minX, y: minY, width: totalWidth, height: totalHeight };
+    this.expectedBounds = {
+      x: minX,
+      y: minY,
+      width: totalWidth,
+      height: totalHeight,
+    };
 
     this.borderWindow.webContents.on("did-finish-load", () => {
       this.borderWindow.setPosition(minX, minY);
       this.borderWindow.setSize(totalWidth, totalHeight);
-      
+
       setTimeout(() => {
         const actualBounds = this.borderWindow.getBounds();
         const adjustedRegion = {
@@ -117,7 +127,11 @@ class RecordingOverlay {
     });
 
     // Calcula posição inteligente dos controles
-    const controlsPos = this.calculateControlsPosition(region, this.controlsWidth, this.controlsHeight);
+    const controlsPos = this.calculateControlsPosition(
+      region,
+      this.controlsWidth,
+      this.controlsHeight,
+    );
     this.positionSide = controlsPos.side;
 
     this.controlsWindow = new BrowserWindow({
@@ -134,7 +148,7 @@ class RecordingOverlay {
       focusable: true,
       hasShadow: false,
       backgroundColor: "#00000000",
-      type: 'toolbar',
+      type: "toolbar",
       thickFrame: false,
       webPreferences: {
         nodeIntegration: true,
@@ -143,16 +157,18 @@ class RecordingOverlay {
     });
 
     this.controlsWindow.loadFile(
-      path.join(__dirname, "../../renderer/recording-controls.html")
+      path.join(__dirname, "../../renderer/recording-controls.html"),
     );
     this.controlsWindow.setMenuBarVisibility(false);
-    this.controlsWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-    this.controlsWindow.setAlwaysOnTop(true, 'screen-saver');
+    this.controlsWindow.setVisibleOnAllWorkspaces(true, {
+      visibleOnFullScreen: true,
+    });
+    this.controlsWindow.setAlwaysOnTop(true, "screen-saver");
 
     this.controlsWindow.webContents.on("did-finish-load", () => {
       // Informa ao renderer qual lado está posicionado para ajustar layout interno
-      this.controlsWindow.webContents.send('position-side', this.positionSide);
-      
+      this.controlsWindow.webContents.send("position-side", this.positionSide);
+
       if (this.onReadyCallback) {
         this.onReadyCallback();
       }
@@ -164,9 +180,17 @@ class RecordingOverlay {
   }
 
   setupIpcHandlers() {
-    ipcMain.removeAllListeners('expand-controls');
-    ipcMain.on('expand-controls', () => {
+    ipcMain.removeAllListeners("expand-controls");
+    ipcMain.removeAllListeners("enable-window-drag");
+
+    ipcMain.on("expand-controls", () => {
       this.expandControls();
+    });
+
+    ipcMain.on("enable-window-drag", () => {
+      if (this.controlsWindow && !this.controlsWindow.isDestroyed()) {
+        this.controlsWindow.setMovable(true);
+      }
     });
   }
 
@@ -174,12 +198,12 @@ class RecordingOverlay {
     if (this.controlsWindow && !this.controlsWindow.isDestroyed()) {
       const bounds = this.controlsWindow.getBounds();
       const heightDiff = this.expandedControlsHeight - this.controlsHeight;
-      
+
       let newY = bounds.y;
-      
+
       // Se está posicionado acima ou dentro, expande para cima
       // Se está posicionado abaixo, expande para baixo
-      if (this.positionSide === 'top' || this.positionSide === 'inside') {
+      if (this.positionSide === "top" || this.positionSide === "inside") {
         newY = bounds.y - heightDiff;
       }
       // Se 'bottom', newY permanece o mesmo (expande para baixo)
@@ -187,24 +211,31 @@ class RecordingOverlay {
       // Recalcular X para manter centralizado baseado na região da gravação
       const display = screen.getDisplayMatching(this.region);
       const screenBounds = display.bounds;
-      
-      let newX = this.region.x + Math.floor(this.region.width / 2) - Math.floor(this.expandedControlsWidth / 2);
-      
+
+      let newX =
+        this.region.x +
+        Math.floor(this.region.width / 2) -
+        Math.floor(this.expandedControlsWidth / 2);
+
       // Ajuste horizontal - não permitir que saia das bordas laterais
       const minX = screenBounds.x + 10;
-      const maxX = screenBounds.x + screenBounds.width - this.expandedControlsWidth - 10;
+      const maxX =
+        screenBounds.x + screenBounds.width - this.expandedControlsWidth - 10;
       newX = Math.max(minX, Math.min(newX, maxX));
-      
+
       this.controlsWindow.setBounds({
         x: Math.round(newX),
         y: Math.round(newY),
         width: this.expandedControlsWidth,
-        height: this.expandedControlsHeight
+        height: this.expandedControlsHeight,
       });
-      
-      this.controlsWindow.webContents.send('controls-expanded', this.positionSide);
+
+      this.controlsWindow.webContents.send(
+        "controls-expanded",
+        this.positionSide,
+      );
     }
-    
+
     this.hideBorder();
   }
 
@@ -214,15 +245,32 @@ class RecordingOverlay {
     }
   }
 
+  setRecordingState(state) {
+    if (this.borderWindow && !this.borderWindow.isDestroyed()) {
+      this.borderWindow.webContents.send("set-recording-state", state);
+    }
+  }
+
+  notifyRecordingStarted() {
+    if (this.controlsWindow && !this.controlsWindow.isDestroyed()) {
+      this.controlsWindow.webContents.send("recording-started");
+    }
+    this.setRecordingState("recording");
+  }
+
   notifyRecordingFinished(videoPath) {
     if (this.controlsWindow && !this.controlsWindow.isDestroyed()) {
-      this.controlsWindow.webContents.send('recording-finished', { path: videoPath });
+      this.controlsWindow.webContents.send("recording-finished", {
+        path: videoPath,
+      });
     }
   }
 
   notifyError(errorMessage) {
     if (this.controlsWindow && !this.controlsWindow.isDestroyed()) {
-      this.controlsWindow.webContents.send('recording-error', { error: errorMessage });
+      this.controlsWindow.webContents.send("recording-error", {
+        error: errorMessage,
+      });
     }
   }
 

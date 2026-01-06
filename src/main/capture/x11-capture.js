@@ -1,17 +1,17 @@
 const { spawn } = require("child_process");
 const { execSync } = require("child_process");
-const { getSystemAudioMonitor } = require("../utils/env-detector");
+const { getSystemAudioMonitor, getSystemMicrophone } = require("../utils/env-detector");
 
 class X11Capture {
   constructor() {
     this.ffmpegProcess = null;
     this.display = process.env.DISPLAY || ":0";
-    this.region = null; // {x, y, width, height}
+    this.region = null;
+    this.useMicrophone = false;
   }
 
   setRegion(region) {
     if (region) {
-      // Garantir que dimensões sejam pares (requisito do libx264)
       this.region = {
         x: region.x,
         y: region.y,
@@ -21,6 +21,10 @@ class X11Capture {
     } else {
       this.region = null;
     }
+  }
+
+  setUseMicrophone(useMic) {
+    this.useMicrophone = useMic;
   }
 
   async getScreenResolution() {
@@ -190,34 +194,36 @@ class X11Capture {
     }
 
     const audioMonitor = getSystemAudioMonitor();
-    const args = [
-      "-f",
-      "pulse",
-      "-i",
-      audioMonitor,
-      "-f",
-      "x11grab",
-      "-s",
-      size,
-      "-r",
-      "60",
-      "-i",
-      `${this.display}+${offset}`,
-      "-c:v",
-      "libx264",
-      "-preset",
-      "medium",
-      "-crf",
-      "18",
-      "-pix_fmt",
-      "yuv420p",
-      "-c:a",
-      "aac",
-      "-b:a",
-      "128k",
-      "-y",
-      outputPath,
-    ];
+    const microphone = this.useMicrophone ? getSystemMicrophone() : null;
+    
+    console.log("[X11Capture] useMicrophone:", this.useMicrophone);
+    console.log("[X11Capture] audioMonitor:", audioMonitor);
+    console.log("[X11Capture] microphone:", microphone);
+    
+    let args = [];
+    
+    if (microphone) {
+      args = [
+        "-f", "pulse", "-i", audioMonitor,
+        "-f", "pulse", "-i", microphone,
+        "-f", "x11grab", "-s", size, "-r", "60", "-i", `${this.display}+${offset}`,
+        "-filter_complex", "[0:a][1:a]amix=inputs=2:duration=first:dropout_transition=2[aout]",
+        "-map", "2:v", "-map", "[aout]",
+        "-c:v", "libx264", "-preset", "medium", "-crf", "18", "-pix_fmt", "yuv420p",
+        "-c:a", "aac", "-b:a", "128k",
+        "-y", outputPath,
+      ];
+      console.log("[X11Capture] FFmpeg args (com mic):", args.join(" "));
+    } else {
+      args = [
+        "-f", "pulse", "-i", audioMonitor,
+        "-f", "x11grab", "-s", size, "-r", "60", "-i", `${this.display}+${offset}`,
+        "-c:v", "libx264", "-preset", "medium", "-crf", "18", "-pix_fmt", "yuv420p",
+        "-c:a", "aac", "-b:a", "128k",
+        "-y", outputPath,
+      ];
+      console.log("[X11Capture] FFmpeg args (sem mic):", args.join(" "));
+    }
 
     this.ffmpegProcess = spawn("ffmpeg", args);
 

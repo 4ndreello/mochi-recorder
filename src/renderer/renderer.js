@@ -8,8 +8,11 @@ const info = document.getElementById('info');
 const processing = document.getElementById('processing');
 const success = document.getElementById('success');
 const outputPath = document.getElementById('outputPath');
+const micToggle = document.getElementById('micToggle');
+const micLabel = document.getElementById('micLabel');
 
 let isRecording = false;
+let isMicEnabled = false;
 
 async function updateStatus() {
   const status = await ipcRenderer.invoke('get-recording-status');
@@ -80,4 +83,29 @@ ipcRenderer.on('processing-complete', (event, data) => {
 
 // Atualizar status inicial
 updateStatus();
+updateMicStatus();
+
+async function updateMicStatus() {
+  const status = await ipcRenderer.invoke('get-microphone-status');
+  isMicEnabled = status.useMicrophone;
+  updateMicUI();
+}
+
+function updateMicUI() {
+  if (isMicEnabled) {
+    micToggle.classList.remove('muted');
+    micToggle.classList.add('unmuted');
+    micLabel.textContent = 'Microfone ligado';
+  } else {
+    micToggle.classList.remove('unmuted');
+    micToggle.classList.add('muted');
+    micLabel.textContent = 'Microfone desligado';
+  }
+}
+
+micToggle.addEventListener('click', async () => {
+  const result = await ipcRenderer.invoke('toggle-microphone');
+  isMicEnabled = result.useMicrophone;
+  updateMicUI();
+});
 

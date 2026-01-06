@@ -80,5 +80,56 @@ function getSystemAudioMonitor() {
   return 'default';
 }
 
-module.exports = { detectEnvironment, getSystemAudioMonitor };
+function getSystemMicrophone() {
+  // Tentar obter o microfone padrão via pactl
+  try {
+    const defaultSource = execSync('pactl get-default-source', {
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    }).trim();
+    
+    // Verificar se não é um monitor (queremos entrada real, não loopback)
+    if (defaultSource && !defaultSource.includes('.monitor')) {
+      return defaultSource;
+    }
+  } catch (e) {
+    // pactl get-default-source não disponível em versões antigas
+  }
+
+  // Fallback: listar sources e encontrar um que não seja monitor
+  try {
+    const output = execSync('pactl list sources short', {
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    });
+    
+    const lines = output.trim().split('\n');
+    
+    // Primeiro, procurar por fontes ativas que não são monitors
+    for (const line of lines) {
+      if (!line.includes('.monitor') && !line.includes('SUSPENDED')) {
+        const parts = line.split('\t');
+        if (parts[1]) {
+          return parts[1];
+        }
+      }
+    }
+    
+    // Fallback: qualquer fonte que não seja monitor
+    for (const line of lines) {
+      if (!line.includes('.monitor')) {
+        const parts = line.split('\t');
+        if (parts[1]) {
+          return parts[1];
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('Erro ao detectar microfone:', e);
+  }
+  
+  return null; // Retornar null se não encontrar microfone
+}
+
+module.exports = { detectEnvironment, getSystemAudioMonitor, getSystemMicrophone };
 

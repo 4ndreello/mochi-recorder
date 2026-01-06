@@ -1,51 +1,100 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mochi</title>
-  <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-  <div class="container">
-    <header>
-      <h1>🎬 Mochi</h1>
-      <p class="subtitle">Gravação de tela com zoom automático</p>
-    </header>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Mochi</title>
+        <link rel="stylesheet" href="styles.css" />
+    </head>
+    <body>
+        <div class="container">
+            <header>
+                <h1>🎬 Mochi</h1>
+                <p class="subtitle">Gravação de tela com zoom automático</p>
+            </header>
 
-    <main>
-      <div class="status-indicator" id="statusIndicator">
-        <span class="status-dot" id="statusDot"></span>
-        <span class="status-text" id="statusText">Pronto</span>
-      </div>
+            <main>
+                <div class="status-indicator" id="statusIndicator">
+                    <span class="status-dot" id="statusDot"></span>
+                    <span class="status-text" id="statusText">PRONTO</span>
+                </div>
 
-      <div class="controls">
-        <button id="startBtn" class="btn btn-primary">
-          ▶ Iniciar Gravação
-        </button>
-        <button id="stopBtn" class="btn btn-secondary" disabled>
-          ⏹ Parar Gravação
-        </button>
-      </div>
+                <div class="mic-control">
+                    <button
+                        id="micToggle"
+                        class="mic-toggle muted"
+                        title="Alternar microfone"
+                    >
+                        <svg
+                            class="mic-icon mic-on"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                        >
+                            <path
+                                d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"
+                            />
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                            <line x1="12" y1="19" x2="12" y2="23" />
+                            <line x1="8" y1="23" x2="16" y2="23" />
+                        </svg>
+                        <svg
+                            class="mic-icon mic-off"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                        >
+                            <path
+                                d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"
+                            />
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                            <line x1="12" y1="19" x2="12" y2="23" />
+                            <line x1="8" y1="23" x2="16" y2="23" />
+                            <line
+                                x1="1"
+                                y1="1"
+                                x2="23"
+                                y2="23"
+                                stroke-width="2.5"
+                            />
+                        </svg>
+                    </button>
+                    <span class="mic-label" id="micLabel"
+                        >Microfone desligado</span
+                    >
+                </div>
 
-      <div class="info" id="info">
-        <p>Clique em "Iniciar Gravação" para começar.</p>
-        <p class="hint">O zoom automático será aplicado nos cliques durante o processamento.</p>
-      </div>
+                <div class="controls">
+                    <button id="startBtn" class="btn btn-primary">
+                        ▶ Iniciar Gravação
+                    </button>
+                    <button id="stopBtn" class="btn btn-secondary" disabled>
+                        ⏹ Parar Gravação
+                    </button>
+                </div>
 
-      <div class="processing" id="processing" style="display: none;">
-        <div class="spinner"></div>
-        <p>Processando vídeo com zoom automático...</p>
-      </div>
+                <div class="info" id="info">
+                    <p>Clique em "Iniciar Gravação" para começar.</p>
+                    <p class="hint">
+                        O zoom automático será aplicado nos cliques durante o
+                        processamento.
+                    </p>
+                </div>
 
-      <div class="success" id="success" style="display: none;">
-        <p>✅ Vídeo processado com sucesso!</p>
-        <p class="output-path" id="outputPath"></p>
-      </div>
-    </main>
-  </div>
+                <div class="processing" id="processing" style="display: none">
+                    <div class="spinner"></div>
+                    <p>Processando vídeo com zoom automático...</p>
+                </div>
 
-  <script src="renderer.js"></script>
-</body>
+                <div class="success" id="success" style="display: none">
+                    <p>✅ Vídeo processado com sucesso!</p>
+                    <p class="output-path" id="outputPath"></p>
+                </div>
+            </main>
+        </div>
+
+        <script src="renderer.js"></script>
+    </body>
 </html>
-

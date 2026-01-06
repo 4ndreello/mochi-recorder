@@ -1,16 +1,16 @@
 const { spawn } = require("child_process");
 const { execSync } = require("child_process");
-const { getSystemAudioMonitor } = require("../utils/env-detector");
+const { getSystemAudioMonitor, getSystemMicrophone } = require("../utils/env-detector");
 
 class WaylandCapture {
   constructor() {
     this.ffmpegProcess = null;
-    this.region = null; // {x, y, width, height}
+    this.region = null;
+    this.useMicrophone = false;
   }
 
   setRegion(region) {
     if (region) {
-      // Garantir que dimensões sejam pares (requisito do libx264)
       this.region = {
         x: region.x,
         y: region.y,
@@ -20,6 +20,10 @@ class WaylandCapture {
     } else {
       this.region = null;
     }
+  }
+
+  setUseMicrophone(useMic) {
+    this.useMicrophone = useMic;
   }
 
   async getPipeWireSource() {
@@ -46,43 +50,49 @@ class WaylandCapture {
   async startRecording(outputPath) {
     const source = await this.getPipeWireSource();
     const audioMonitor = getSystemAudioMonitor();
+    const microphone = this.useMicrophone ? getSystemMicrophone() : null;
 
-    const args = [
-      "-f",
-      "pulse",
-      "-i",
-      audioMonitor,
-      "-f",
-      "pipewire",
-      "-i",
-      source,
-      "-r",
-      "60",
-    ];
-
-    if (this.region && this.region.width > 0 && this.region.height > 0) {
+    let args = [];
+    
+    if (microphone) {
+      args = [
+        "-f", "pulse", "-i", audioMonitor,
+        "-f", "pulse", "-i", microphone,
+        "-f", "pipewire", "-i", source,
+        "-r", "60",
+      ];
+      
+      let filterComplex = "[0:a][1:a]amix=inputs=2:duration=first:dropout_transition=2[aout]";
+      
+      if (this.region && this.region.width > 0 && this.region.height > 0) {
+        filterComplex = `[2:v]crop=${this.region.width}:${this.region.height}:${this.region.x}:${this.region.y}[vout];[0:a][1:a]amix=inputs=2:duration=first:dropout_transition=2[aout]`;
+        args.push("-filter_complex", filterComplex, "-map", "[vout]", "-map", "[aout]");
+      } else {
+        args.push("-filter_complex", filterComplex, "-map", "2:v", "-map", "[aout]");
+      }
+      
       args.push(
-        "-vf",
-        `crop=${this.region.width}:${this.region.height}:${this.region.x}:${this.region.y}`
+        "-c:v", "libx264", "-preset", "medium", "-crf", "18", "-pix_fmt", "yuv420p",
+        "-c:a", "aac", "-b:a", "128k",
+        "-y", outputPath
+      );
+    } else {
+      args = [
+        "-f", "pulse", "-i", audioMonitor,
+        "-f", "pipewire", "-i", source,
+        "-r", "60",
+      ];
+
+      if (this.region && this.region.width > 0 && this.region.height > 0) {
+        args.push("-vf", `crop=${this.region.width}:${this.region.height}:${this.region.x}:${this.region.y}`);
+      }
+
+      args.push(
+        "-c:v", "libx264", "-preset", "medium", "-crf", "18", "-pix_fmt", "yuv420p",
+        "-c:a", "aac", "-b:a", "128k",
+        "-y", outputPath
       );
     }
-
-    args.push(
-      "-c:v",
-      "libx264",
-      "-preset",
-      "medium",
-      "-crf",
-      "18",
-      "-pix_fmt",
-      "yuv420p",
-      "-c:a",
-      "aac",
-      "-b:a",
-      "128k",
-      "-y",
-      outputPath
-    );
 
     this.ffmpegProcess = spawn("ffmpeg", args);
 

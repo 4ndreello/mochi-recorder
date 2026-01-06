@@ -22,6 +22,7 @@ let recordingStartTime = 0;
 let videoPath = "";
 let metadataPath = "";
 let selectedRegion = null;
+let useMicrophone = false;
 
 function createTray() {
   trayManager = new TrayManager();
@@ -51,6 +52,10 @@ ipcMain.on("stop-recording-clicked", () => {
   stopRecording();
 });
 
+ipcMain.on("start-recording-clicked", () => {
+  startCapture();
+});
+
 ipcMain.on("close-recording-overlay", () => {
   if (recordingOverlay) {
     recordingOverlay.close();
@@ -58,23 +63,47 @@ ipcMain.on("close-recording-overlay", () => {
   }
 });
 
+ipcMain.on("cancel-recording-overlay", () => {
+  if (recordingOverlay) {
+    recordingOverlay.close();
+    recordingOverlay = null;
+  }
+  selectedRegion = null;
+});
+
 function showAreaSelector() {
   areaSelector = new AreaSelector();
   areaSelector.create((region) => {
     selectedRegion = region;
-    startRecording(region);
+    showRecordingOverlay(region);
   });
   areaSelector.show();
 }
 
-async function startRecording(region) {
+async function showRecordingOverlay(region) {
+  recordingOverlay = new RecordingOverlay();
+
+  await new Promise((resolve) => {
+    recordingOverlay.create(region, () => {
+      resolve();
+    });
+    recordingOverlay.show();
+  });
+}
+
+async function startCapture() {
+  if (!selectedRegion) {
+    console.log("[MAIN] Nenhuma região selecionada");
+    return;
+  }
+
   if (isRecording || isStartingRecording) {
     console.log("[MAIN] Já está gravando ou iniciando, ignorando");
     return;
   }
 
   isStartingRecording = true;
-  console.log("[MAIN] Iniciando gravação...");
+  console.log("[MAIN] Iniciando captura...");
 
   try {
     const timestamp = Date.now();
@@ -88,6 +117,7 @@ async function startRecording(region) {
     );
 
     captureManager = new CaptureManager();
+    captureManager.setUseMicrophone(useMicrophone);
     mouseTracker = new MouseTracker();
     eventRecorder = new EventRecorder(metadataPath);
 
@@ -98,34 +128,28 @@ async function startRecording(region) {
       eventRecorder.record(event, relativeTime);
     });
 
-    recordingOverlay = new RecordingOverlay();
-
-    await new Promise((resolve) => {
-      recordingOverlay.create(region, () => {
-        resolve();
-      });
-      recordingOverlay.show();
-    });
-
     await new Promise((resolve) => setTimeout(resolve, 100));
 
-    await captureManager.startRecording(videoPath, region);
+    await captureManager.startRecording(videoPath, selectedRegion);
 
     isRecording = true;
     isStartingRecording = false;
-    console.log("[MAIN] Gravação iniciada com sucesso!");
+    console.log("[MAIN] Captura iniciada com sucesso!");
+
+    if (recordingOverlay) {
+      recordingOverlay.notifyRecordingStarted();
+    }
 
     if (trayManager) {
       trayManager.setRecording(true);
     }
   } catch (error) {
-    console.error("[MAIN] Erro ao iniciar gravação:", error);
+    console.error("[MAIN] Erro ao iniciar captura:", error);
     isRecording = false;
     isStartingRecording = false;
     
     if (recordingOverlay) {
-      recordingOverlay.close();
-      recordingOverlay = null;
+      recordingOverlay.notifyError(error.message);
     }
   }
 }
@@ -222,4 +246,13 @@ async function stopRecording() {
 
 ipcMain.handle("get-recording-status", () => {
   return { isRecording };
+});
+
+ipcMain.handle("get-microphone-status", () => {
+  return { useMicrophone };
+});
+
+ipcMain.handle("toggle-microphone", () => {
+  useMicrophone = !useMicrophone;
+  return { useMicrophone };
 });
