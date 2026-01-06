@@ -39,7 +39,8 @@
         "provider": "github",
         "owner": "4ndreello",
         "repo": "mochi-recorder",
-        "releaseType": "release"
+        "releaseType": "release",
+        "releaseName": "v${version}"
       }
     ],
     "linux": {
