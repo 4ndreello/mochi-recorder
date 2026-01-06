@@ -33,6 +33,7 @@
   "build": {
     "appId": "com.mochi.app",
     "productName": "Mochi",
+    "icon": "src/renderer/assets/icon.png",
     "publish": [
       {
         "provider": "github",
