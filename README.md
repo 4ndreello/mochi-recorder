@@ -14,7 +14,7 @@
 <table>
    <tr>
       <th>Item</th>
-      <th>Versão</th>
+      <th>Version</th>
    </tr>
    <tr>
       <td>Node.js</td>
@@ -26,7 +26,7 @@
    </tr>
    <tr>
       <td>Linux</td>
-      <td>X11 ou Wayland</td>
+      <td>X11 or Wayland</td>
    </tr>
 </table>
 <h2>Installation</h2>
