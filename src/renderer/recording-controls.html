@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Recording Controls</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: transparent !important;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      height: 100vh;
+      width: 100vw;
+    }
+
+    .container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      height: 100%;
+      width: 100%;
+      padding: 4px;
+    }
+
+    .container.position-bottom {
+      justify-content: flex-start;
+    }
+
+    .container.position-bottom .controls-bar {
+      order: -1;
+    }
+
+    .action-buttons {
+      display: none;
+      gap: 6px;
+      margin-bottom: 6px;
+      animation: fadeIn 0.2s ease;
+    }
+
+    .action-buttons.visible {
+      display: flex;
+    }
+
+    .position-bottom .action-buttons {
+      margin-bottom: 0;
+      margin-top: 6px;
+    }
+
+    .action-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      padding: 7px 12px;
+      background: rgba(40, 40, 40, 0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+
+    .action-btn:hover {
+      background: rgba(60, 60, 60, 0.9);
+      border-color: rgba(255, 255, 255, 0.15);
+      transform: translateY(-1px);
+    }
+
+    .action-btn:active {
+      transform: scale(0.97);
+    }
+
+    .action-btn.primary {
+      background: rgba(102, 126, 234, 0.85);
+      border-color: rgba(102, 126, 234, 0.4);
+    }
+
+    .action-btn.primary:hover {
+      background: rgba(85, 104, 211, 0.95);
+    }
+
+    .action-btn.success {
+      background: rgba(16, 185, 129, 0.85);
+      border-color: rgba(16, 185, 129, 0.4);
+    }
+
+    .action-btn svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    .action-btn.uploading {
+      background: rgba(80, 80, 80, 0.7);
+      cursor: not-allowed;
+    }
+
+    .action-btn .btn-spinner {
+      width: 10px;
+      height: 10px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    .error-msg {
+      display: none;
+      font-size: 10px;
+      color: #ff6b6b;
+      margin-bottom: 4px;
+      text-align: center;
+      padding: 0 8px;
+    }
+
+    .error-msg.visible {
+      display: block;
+    }
+
+    .controls-bar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      background: rgba(25, 25, 25, 0.75);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      padding: 8px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      user-select: none;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .top-progress {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: rgba(60, 60, 60, 0.4);
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+
+    .top-progress.visible {
+      opacity: 1;
+    }
+
+    .top-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #667eea, #764ba2);
+      width: 0%;
+      transition: width 0.15s ease-out;
+    }
+
+    .recording-indicator {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: rgba(255, 255, 255, 0.95);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+
+    .recording-dot {
+      width: 8px;
+      height: 8px;
+      background: #ff4757;
+      border-radius: 50%;
+      animation: pulse 1.2s ease-in-out infinite;
+      box-shadow: 0 0 8px rgba(255, 71, 87, 0.5);
+    }
+
+    .recording-dot.paused {
+      animation: none;
+      background: #10b981;
+      box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+    }
+
+    .recording-dot.error {
+      animation: none;
+      background: #f44336;
+      box-shadow: 0 0 8px rgba(244, 67, 54, 0.5);
+    }
+
+    .timer {
+      font-family: 'SF Mono', 'Monaco', 'Consolas', 'Menlo', monospace;
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.7);
+      min-width: 38px;
+      font-weight: 500;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .control-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      background: rgba(255, 71, 87, 0.9);
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .control-btn:hover {
+      background: rgba(255, 47, 63, 1);
+      transform: scale(1.08);
+    }
+
+    .control-btn:active {
+      transform: scale(0.95);
+    }
+
+    .control-btn:disabled {
+      background: rgba(80, 80, 80, 0.6);
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .stop-icon {
+      width: 10px;
+      height: 10px;
+      background: #fff;
+      border-radius: 2px;
+    }
+
+    .close-button {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      background: rgba(60, 60, 60, 0.8);
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .close-button.visible {
+      display: flex;
+    }
+
+    .close-button:hover {
+      background: rgba(80, 80, 80, 0.9);
+    }
+
+    .close-button svg {
+      width: 12px;
+      height: 12px;
+      stroke: rgba(255, 255, 255, 0.7);
+      stroke-width: 2;
+    }
+
+    .processing-status {
+      display: none;
+      align-items: center;
+      gap: 6px;
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 10px;
+      margin-bottom: 4px;
+    }
+
+    .processing-status.visible {
+      display: flex;
+    }
+
+    .spinner {
+      width: 12px;
+      height: 12px;
+      border: 2px solid rgba(60, 60, 60, 0.5);
+      border-top-color: #667eea;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { 
+        opacity: 1;
+        transform: scale(1);
+      }
+      50% { 
+        opacity: 0.5;
+        transform: scale(0.9);
+      }
+    }
+
+    @keyframes fadeIn {
+      from { 
+        opacity: 0; 
+        transform: translateY(4px); 
+      }
+      to { 
+        opacity: 1; 
+        transform: translateY(0); 
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container" id="container">
+    <div class="processing-status" id="processingStatus">
+      <div class="spinner"></div>
+      <span>Processando...</span>
+    </div>
+
+    <div class="action-buttons" id="actionButtons">
+      <button class="action-btn" id="btnCopy" title="Copiar para transferência">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+        </svg>
+        Copiar
+      </button>
+      <button class="action-btn primary" id="btnUpload" title="Upload na internet">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="17 8 12 3 7 8"></polyline>
+          <line x1="12" y1="3" x2="12" y2="15"></line>
+        </svg>
+        Upload
+      </button>
+    </div>
+
+
+
+    <div class="error-msg" id="errorMsg"></div>
+
+    <div class="controls-bar">
+      <div class="top-progress" id="topProgress">
+        <div class="top-progress-fill" id="topProgressFill"></div>
+      </div>
+      <div class="recording-indicator">
+        <div class="recording-dot" id="recordingDot"></div>
+        <span id="recLabel">REC</span>
+      </div>
+      <div class="timer" id="timer">0:00</div>
+      <button class="control-btn" id="stopButton" title="Parar gravação">
+        <div class="stop-icon"></div>
+      </button>
+      <button class="close-button" id="closeButton" title="Fechar (ESC)">
+        <svg viewBox="0 0 24 24" fill="none">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <script>
+    const { ipcRenderer, clipboard } = require('electron');
+
+    const container = document.getElementById('container');
+    const stopButton = document.getElementById('stopButton');
+    const closeButton = document.getElementById('closeButton');
+    const timerElement = document.getElementById('timer');
+    const recordingDot = document.getElementById('recordingDot');
+    const recLabel = document.getElementById('recLabel');
+    const processingStatus = document.getElementById('processingStatus');
+    const actionButtons = document.getElementById('actionButtons');
+    const btnCopy = document.getElementById('btnCopy');
+    const btnUpload = document.getElementById('btnUpload');
+    const topProgress = document.getElementById('topProgress');
+    const topProgressFill = document.getElementById('topProgressFill');
+    const errorMsg = document.getElementById('errorMsg');
+    
+    const uploadBtnOriginalHtml = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="17 8 12 3 7 8"></polyline>
+          <line x1="12" y1="3" x2="12" y2="15"></line>
+        </svg>
+        Upload`;
+
+    let startTime = Date.now();
+    let timerInterval = null;
+    let videoPath = '';
+    let isRecording = true;
+    let canClose = false;
+
+    function updateTimer() {
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      const minutes = Math.floor(elapsed / 60);
+      const seconds = elapsed % 60;
+      timerElement.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    }
+
+    timerInterval = setInterval(updateTimer, 1000);
+
+    function closeOverlay() {
+      if (canClose) {
+        ipcRenderer.send('close-recording-overlay');
+      }
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeOverlay();
+      }
+    });
+
+    ipcRenderer.on('position-side', (event, side) => {
+      if (side === 'bottom') {
+        container.classList.add('position-bottom');
+      }
+    });
+
+    ipcRenderer.on('controls-expanded', (event, side) => {
+      container.style.opacity = '1';
+    });
+
+    stopButton.addEventListener('click', () => {
+      if (!isRecording) return;
+      
+      isRecording = false;
+      
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+      }
+      
+      recordingDot.classList.add('paused');
+      recLabel.textContent = 'OK';
+      stopButton.disabled = true;
+      
+      processingStatus.classList.add('visible');
+      
+      ipcRenderer.send('expand-controls');
+      ipcRenderer.send('stop-recording-clicked');
+    });
+
+    ipcRenderer.on('recording-finished', (event, data) => {
+      console.log('[CONTROLS] recording-finished recebido:', data);
+      videoPath = data.path;
+      canClose = true;
+      
+      processingStatus.classList.remove('visible');
+      actionButtons.classList.add('visible');
+      closeButton.classList.add('visible');
+      stopButton.style.display = 'none';
+    });
+
+    ipcRenderer.on('recording-error', (event, data) => {
+      console.log('[CONTROLS] recording-error recebido:', data);
+      canClose = true;
+      
+      processingStatus.classList.remove('visible');
+      recordingDot.classList.remove('paused');
+      recordingDot.classList.add('error');
+      recLabel.textContent = 'ERRO';
+      
+      errorMsg.textContent = data.error || 'Erro desconhecido';
+      errorMsg.classList.add('visible');
+      
+      closeButton.classList.add('visible');
+      stopButton.style.display = 'none';
+    });
+
+    btnCopy.addEventListener('click', async () => {
+      try {
+        errorMsg.classList.remove('visible');
+        const originalHtml = btnCopy.innerHTML;
+        btnCopy.disabled = true;
+        
+        await ipcRenderer.invoke('copy-file-to-clipboard', videoPath);
+        
+        btnCopy.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> OK`;
+        btnCopy.classList.add('success');
+        
+        setTimeout(() => {
+          btnCopy.innerHTML = originalHtml;
+          btnCopy.classList.remove('success');
+          btnCopy.disabled = false;
+        }, 1500);
+      } catch (e) {
+        errorMsg.textContent = e.message;
+        errorMsg.classList.add('visible');
+        btnCopy.disabled = false;
+      }
+    });
+
+    btnUpload.addEventListener('click', async () => {
+      try {
+        errorMsg.classList.remove('visible');
+        
+        // Mostrar estado de "Subindo..."
+        btnUpload.innerHTML = `<div class="btn-spinner"></div> Subindo...`;
+        btnUpload.classList.add('uploading');
+        btnUpload.classList.remove('primary');
+        btnUpload.disabled = true;
+        btnCopy.disabled = true;
+        
+        // Mostrar barra de progresso no topo
+        topProgress.classList.add('visible');
+        topProgressFill.style.width = '0%';
+        
+        const result = await ipcRenderer.invoke('upload-to-catbox', videoPath);
+        
+        clipboard.writeText(result.url);
+        
+        // Esconder barra e mostrar sucesso
+        topProgress.classList.remove('visible');
+        btnUpload.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Copiado!`;
+        btnUpload.classList.remove('uploading');
+        btnUpload.classList.add('success');
+        btnCopy.disabled = false;
+      } catch (e) {
+        // Restaurar estado original em caso de erro
+        topProgress.classList.remove('visible');
+        btnUpload.innerHTML = uploadBtnOriginalHtml;
+        btnUpload.classList.remove('uploading');
+        btnUpload.classList.add('primary');
+        btnUpload.disabled = false;
+        btnCopy.disabled = false;
+        errorMsg.textContent = e.message;
+        errorMsg.classList.add('visible');
+      }
+    });
+
+    ipcRenderer.on('upload-progress', (event, progress) => {
+      topProgressFill.style.width = progress + '%';
+    });
+
+    closeButton.addEventListener('click', closeOverlay);
+  </script>
+</body>
+</html>

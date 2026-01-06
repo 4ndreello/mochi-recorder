@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mochi</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🎬 Mochi</h1>
+      <p class="subtitle">Gravação de tela com zoom automático</p>
+    </header>
+
+    <main>
+      <div class="status-indicator" id="statusIndicator">
+        <span class="status-dot" id="statusDot"></span>
+        <span class="status-text" id="statusText">Pronto</span>
+      </div>
+
+      <div class="controls">
+        <button id="startBtn" class="btn btn-primary">
+          ▶ Iniciar Gravação
+        </button>
+        <button id="stopBtn" class="btn btn-secondary" disabled>
+          ⏹ Parar Gravação
+        </button>
+      </div>
+
+      <div class="info" id="info">
+        <p>Clique em "Iniciar Gravação" para começar.</p>
+        <p class="hint">O zoom automático será aplicado nos cliques durante o processamento.</p>
+      </div>
+
+      <div class="processing" id="processing" style="display: none;">
+        <div class="spinner"></div>
+        <p>Processando vídeo com zoom automático...</p>
+      </div>
+
+      <div class="success" id="success" style="display: none;">
+        <p>✅ Vídeo processado com sucesso!</p>
+        <p class="output-path" id="outputPath"></p>
+      </div>
+    </main>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
+

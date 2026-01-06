@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Selecionar Área</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background: rgba(0, 0, 0, 0.3);
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      cursor: crosshair;
+    }
+
+    .selection-box {
+      position: absolute;
+      border: 2px solid #667eea;
+      background: rgba(102, 126, 234, 0.1);
+      pointer-events: none;
+      box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.3);
+    }
+
+    .selection-info {
+      position: absolute;
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 8px 12px;
+      border-radius: 4px;
+      font-size: 12px;
+      pointer-events: none;
+      top: -35px;
+      left: 0;
+      white-space: nowrap;
+    }
+
+    .hint {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      pointer-events: none;
+    }
+
+    .hint kbd {
+      background: rgba(255, 255, 255, 0.2);
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+  <div class="selection-box" id="selectionBox" style="display: none;"></div>
+  <div class="hint">
+    Arraste para selecionar área • <kbd>ESC</kbd> para cancelar • <kbd>Enter</kbd> para confirmar
+  </div>
+
+  <script>
+    const { ipcRenderer } = require('electron');
+
+    let isSelecting = false;
+    let startX = 0;
+    let startY = 0;
+    let selectionBox = document.getElementById('selectionBox');
+    let infoDiv = null;
+
+    function updateSelection(x, y, width, height) {
+      selectionBox.style.left = x + 'px';
+      selectionBox.style.top = y + 'px';
+      selectionBox.style.width = width + 'px';
+      selectionBox.style.height = height + 'px';
+      selectionBox.style.display = 'block';
+
+      // Atualizar info
+      if (!infoDiv) {
+        infoDiv = document.createElement('div');
+        infoDiv.className = 'selection-info';
+        selectionBox.appendChild(infoDiv);
+      }
+      infoDiv.textContent = `${width} × ${height}px`;
+      infoDiv.style.left = '0px';
+      if (y < 35) {
+        infoDiv.style.top = 'auto';
+        infoDiv.style.bottom = '-35px';
+      } else {
+        infoDiv.style.top = '-35px';
+        infoDiv.style.bottom = 'auto';
+      }
+    }
+
+    function finishSelection() {
+      if (!isSelecting) return;
+
+      const rect = selectionBox.getBoundingClientRect();
+      
+      // As coordenadas são relativas à janela
+      // O main process vai converter para absolutas
+      const selection = {
+        x: Math.round(rect.left),
+        y: Math.round(rect.top),
+        width: Math.round(rect.width),
+        height: Math.round(rect.height)
+      };
+
+      if (selection.width > 10 && selection.height > 10) {
+        ipcRenderer.send('area-selected', selection);
+      }
+    }
+
+    function cancelSelection() {
+      isSelecting = false;
+      selectionBox.style.display = 'none';
+      ipcRenderer.send('selection-cancelled');
+    }
+
+    document.addEventListener('mousedown', (e) => {
+      isSelecting = true;
+      startX = e.clientX;
+      startY = e.clientY;
+      updateSelection(startX, startY, 0, 0);
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isSelecting) return;
+
+      const width = Math.abs(e.clientX - startX);
+      const height = Math.abs(e.clientY - startY);
+      const x = Math.min(startX, e.clientX);
+      const y = Math.min(startY, e.clientY);
+
+      updateSelection(x, y, width, height);
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (isSelecting) {
+        finishSelection();
+      }
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        cancelSelection();
+      } else if (e.key === 'Enter' && isSelecting) {
+        finishSelection();
+      }
+    });
+
+    // Prevenir contexto menu
+    document.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+    });
+  </script>
+</body>
+</html>
+

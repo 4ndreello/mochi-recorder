@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Recording Border</title>
+  <style>
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0 !important;
+      padding: 0 !important;
+      background: transparent !important;
+      background-color: transparent !important;
+      overflow: hidden !important;
+      pointer-events: none;
+      width: 100% !important;
+      height: 100% !important;
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      right: 0 !important;
+      bottom: 0 !important;
+    }
+
+    .recording-box {
+      position: fixed;
+      border: none;
+      outline: 3px dashed #ff4757;
+      outline-offset: 4px;
+      background: transparent;
+      pointer-events: none;
+      animation: pulse-border 1.5s ease-in-out infinite;
+      z-index: 999999;
+    }
+
+    @keyframes pulse-border {
+      0%, 100% {
+        opacity: 1;
+        outline-color: #ff4757;
+      }
+      50% {
+        opacity: 0.7;
+        outline-color: #ff6b7a;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="recording-box" id="recordingBox"></div>
+
+  <script>
+    const { ipcRenderer } = require('electron');
+
+    const recordingBox = document.getElementById('recordingBox');
+    // Esconder inicialmente
+    recordingBox.style.display = 'none';
+
+    ipcRenderer.on('set-region', (event, region) => {
+      if (region && region.width > 0 && region.height > 0) {
+        recordingBox.style.left = region.x + 'px';
+        recordingBox.style.top = region.y + 'px';
+        recordingBox.style.width = region.width + 'px';
+        recordingBox.style.height = region.height + 'px';
+        recordingBox.style.display = 'block';
+      }
+    });
+  </script>
+</body>
+</html>
+

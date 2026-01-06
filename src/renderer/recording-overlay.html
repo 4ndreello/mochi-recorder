@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Recording Overlay</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background: transparent;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    .recording-box {
+      position: absolute;
+      /* Borda FORA da área de gravação usando outline */
+      border: none;
+      outline: 3px dashed #f44336;
+      outline-offset: 3px; /* Empurra a borda para fora */
+      background: transparent; /* Sem fundo para não aparecer na gravação */
+      pointer-events: none;
+      animation: pulse-border 2s infinite;
+    }
+
+    @keyframes pulse-border {
+      0%, 100% {
+        opacity: 1;
+      }
+      50% {
+        opacity: 0.6;
+      }
+    }
+
+    .controls-bar {
+      position: absolute;
+      top: -45px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(30, 30, 30, 0.95);
+      padding: 8px 16px;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+      pointer-events: auto; /* Permitir cliques aqui */
+      backdrop-filter: blur(10px);
+    }
+
+    .recording-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .recording-dot {
+      width: 10px;
+      height: 10px;
+      background: #f44336;
+      border-radius: 50%;
+      animation: blink 1s infinite;
+    }
+
+    .timer {
+      font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+      font-size: 13px;
+      color: #ccc;
+      min-width: 50px;
+    }
+
+    .stop-button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      background: #f44336;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .stop-button:hover {
+      background: #d32f2f;
+      transform: scale(1.05);
+    }
+
+    .stop-button:active {
+      transform: scale(0.95);
+    }
+
+    .stop-icon {
+      width: 12px;
+      height: 12px;
+      background: #fff;
+      border-radius: 2px;
+    }
+
+    @keyframes blink {
+      0%, 100% {
+        opacity: 1;
+      }
+      50% {
+        opacity: 0.3;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="recording-box" id="recordingBox" style="display: none;">
+    <div class="controls-bar">
+      <div class="recording-indicator">
+        <div class="recording-dot"></div>
+        <span>REC</span>
+      </div>
+      <div class="timer" id="timer">0:00</div>
+      <button class="stop-button" id="stopButton" title="Parar gravação">
+        <div class="stop-icon"></div>
+      </button>
+    </div>
+  </div>
+
+  <script>
+    const { ipcRenderer } = require('electron');
+
+    const recordingBox = document.getElementById('recordingBox');
+    const stopButton = document.getElementById('stopButton');
+    const timerElement = document.getElementById('timer');
+
+    let startTime = Date.now();
+    let timerInterval = null;
+
+    function updateTimer() {
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      const minutes = Math.floor(elapsed / 60);
+      const seconds = elapsed % 60;
+      timerElement.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    }
+
+    ipcRenderer.on('set-region', (event, region) => {
+      if (region && region.width > 0 && region.height > 0) {
+        recordingBox.style.left = region.x + 'px';
+        recordingBox.style.top = region.y + 'px';
+        recordingBox.style.width = region.width + 'px';
+        recordingBox.style.height = region.height + 'px';
+        recordingBox.style.display = 'block';
+
+        // Iniciar timer
+        startTime = Date.now();
+        timerInterval = setInterval(updateTimer, 1000);
+      }
+    });
+
+    stopButton.addEventListener('click', () => {
+      if (timerInterval) {
+        clearInterval(timerInterval);
+      }
+      ipcRenderer.send('stop-recording-clicked');
+    });
+
+    // Controlar quando a janela deve ignorar eventos do mouse
+    const controlsBar = document.querySelector('.controls-bar');
+    
+    controlsBar.addEventListener('mouseenter', () => {
+      ipcRenderer.send('set-ignore-mouse', false);
+    });
+
+    controlsBar.addEventListener('mouseleave', () => {
+      ipcRenderer.send('set-ignore-mouse', true);
+    });
+  </script>
+</body>
+</html>
+
