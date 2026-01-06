@@ -1,0 +1,11 @@
+node_modules/
+dist/
+*.log
+.DS_Store
+*.mp4
+*.json
+!package.json
+!package-lock.json
+.vscode/
+.idea/
+

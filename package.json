@@ -1,0 +1,50 @@
+{
+  "name": "mochi",
+  "version": "0.1.0",
+  "description": "Screen recording tool for Linux with automatic zoom - Screen Studio alternative",
+  "main": "src/main/main.js",
+  "homepage": "https://github.com/mochi/mochi",
+  "author": {
+    "name": "Mochi",
+    "email": "dev@mochi.app"
+  },
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder",
+    "build:linux": "electron-builder --linux",
+    "build:dir": "electron-builder --linux --dir",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "keywords": [
+    "screen-recording",
+    "video",
+    "linux",
+    "electron"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1"
+  },
+  "dependencies": {
+    "x11": "^2.3.0"
+  },
+  "build": {
+    "appId": "com.mochi.app",
+    "productName": "Mochi",
+    "linux": {
+      "target": [
+        "dir"
+      ],
+      "category": "Utility",
+      "maintainer": "dev@mochi.app"
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "extraResources": [],
+    "asar": true
+  }
+}
