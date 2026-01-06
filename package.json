@@ -33,9 +33,17 @@
   "build": {
     "appId": "com.mochi.app",
     "productName": "Mochi",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "4ndreello",
+        "repo": "mochi-recorder"
+      }
+    ],
     "linux": {
       "target": [
-        "dir"
+        "AppImage",
+        "deb"
       ],
       "category": "Utility",
       "maintainer": "dev@mochi.app"

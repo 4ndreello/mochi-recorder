@@ -8,7 +8,8 @@ class RecordingOverlay {
     this.region = null;
     this.controlsWidth = 200;
     this.controlsHeight = 44;
-    this.expandedControlsHeight = 100;
+    this.expandedControlsWidth = 320;
+    this.expandedControlsHeight = 110;
     this.positionSide = 'top'; // 'top' | 'bottom' | 'inside'
     this.controlsGap = 12;
   }
@@ -182,11 +183,22 @@ class RecordingOverlay {
         newY = bounds.y - heightDiff;
       }
       // Se 'bottom', newY permanece o mesmo (expande para baixo)
+
+      // Recalcular X para manter centralizado baseado na região da gravação
+      const display = screen.getDisplayMatching(this.region);
+      const screenBounds = display.bounds;
+      
+      let newX = this.region.x + Math.floor(this.region.width / 2) - Math.floor(this.expandedControlsWidth / 2);
+      
+      // Ajuste horizontal - não permitir que saia das bordas laterais
+      const minX = screenBounds.x + 10;
+      const maxX = screenBounds.x + screenBounds.width - this.expandedControlsWidth - 10;
+      newX = Math.max(minX, Math.min(newX, maxX));
       
       this.controlsWindow.setBounds({
-        x: bounds.x,
-        y: newY,
-        width: this.controlsWidth,
+        x: Math.round(newX),
+        y: Math.round(newY),
+        width: this.expandedControlsWidth,
         height: this.expandedControlsHeight
       });
       
