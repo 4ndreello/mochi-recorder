@@ -1,5 +1,6 @@
 const { spawn } = require("child_process");
 const { execSync } = require("child_process");
+const { getSystemAudioMonitor } = require("../utils/env-detector");
 
 class X11Capture {
   constructor() {
@@ -188,13 +189,18 @@ class X11Capture {
       offset = "0,0";
     }
 
+    const audioMonitor = getSystemAudioMonitor();
     const args = [
+      "-f",
+      "pulse",
+      "-i",
+      audioMonitor,
       "-f",
       "x11grab",
       "-s",
       size,
       "-r",
-      "30", // 30 FPS
+      "60",
       "-i",
       `${this.display}+${offset}`,
       "-c:v",
@@ -202,9 +208,13 @@ class X11Capture {
       "-preset",
       "medium",
       "-crf",
-      "18", // Alta qualidade
+      "18",
       "-pix_fmt",
       "yuv420p",
+      "-c:a",
+      "aac",
+      "-b:a",
+      "128k",
       "-y",
       outputPath,
     ];

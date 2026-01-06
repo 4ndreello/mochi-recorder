@@ -164,6 +164,7 @@ class VideoProcessor {
         '-c:v', 'libx264',
         '-preset', 'medium',
         '-crf', '23',
+        '-c:a', 'copy',
         '-y',
         this.outputPath
       ];
