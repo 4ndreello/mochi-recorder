@@ -35,5 +35,50 @@ async function detectEnvironment() {
   }
 }
 
-module.exports = { detectEnvironment };
+function getSystemAudioMonitor() {
+  try {
+    const defaultSink = execSync('pactl get-default-sink', {
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    }).trim();
+    
+    if (defaultSink) {
+      return `${defaultSink}.monitor`;
+    }
+  } catch (e) {
+    // pactl get-default-sink não disponível em versões antigas
+  }
+
+  try {
+    const output = execSync('pactl list sources short', {
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    });
+    
+    const lines = output.trim().split('\n');
+    for (const line of lines) {
+      if (line.includes('.monitor') && !line.includes('SUSPENDED')) {
+        const parts = line.split('\t');
+        if (parts[1]) {
+          return parts[1];
+        }
+      }
+    }
+    
+    for (const line of lines) {
+      if (line.includes('.monitor')) {
+        const parts = line.split('\t');
+        if (parts[1]) {
+          return parts[1];
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('Erro ao detectar monitor de áudio:', e);
+  }
+  
+  return 'default';
+}
+
+module.exports = { detectEnvironment, getSystemAudioMonitor };
 

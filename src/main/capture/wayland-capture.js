@@ -1,5 +1,6 @@
 const { spawn } = require("child_process");
 const { execSync } = require("child_process");
+const { getSystemAudioMonitor } = require("../utils/env-detector");
 
 class WaylandCapture {
   constructor() {
@@ -44,18 +45,21 @@ class WaylandCapture {
 
   async startRecording(outputPath) {
     const source = await this.getPipeWireSource();
+    const audioMonitor = getSystemAudioMonitor();
 
     const args = [
+      "-f",
+      "pulse",
+      "-i",
+      audioMonitor,
       "-f",
       "pipewire",
       "-i",
       source,
       "-r",
-      "30", // 30 FPS
+      "60",
     ];
 
-    // Se houver região selecionada, aplicar crop
-    // (dimensões já foram ajustadas para serem pares no setRegion)
     if (this.region && this.region.width > 0 && this.region.height > 0) {
       args.push(
         "-vf",
@@ -69,9 +73,13 @@ class WaylandCapture {
       "-preset",
       "medium",
       "-crf",
-      "18", // Alta qualidade
+      "18",
       "-pix_fmt",
       "yuv420p",
+      "-c:a",
+      "aac",
+      "-b:a",
+      "128k",
       "-y",
       outputPath
     );
