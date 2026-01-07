@@ -90,6 +90,8 @@ class RecordingOverlay {
       webPreferences: {
         nodeIntegration: true,
         contextIsolation: false,
+        enableWebSQL: false,
+        spellcheck: false,
       },
     });
 
@@ -153,6 +155,8 @@ class RecordingOverlay {
       webPreferences: {
         nodeIntegration: true,
         contextIsolation: false,
+        enableWebSQL: false,
+        spellcheck: false,
       },
     });
 

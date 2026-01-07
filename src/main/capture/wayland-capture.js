@@ -39,7 +39,7 @@ class WaylandCapture extends BaseCapture {
    */
   async buildVideoArgs() {
     const source = await this.getVideoSource();
-    return ["-f", "pipewire", "-i", source, "-r", "60"];
+    return ["-f", "pipewire", "-i", source, "-r", "30"];
   }
 }
 

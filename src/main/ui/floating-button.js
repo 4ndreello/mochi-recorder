@@ -22,7 +22,9 @@ class FloatingButton {
       resizable: false,
       webPreferences: {
         nodeIntegration: true,
-        contextIsolation: false
+        contextIsolation: false,
+        enableWebSQL: false,
+        spellcheck: false
       }
     });
 
