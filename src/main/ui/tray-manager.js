@@ -16,7 +16,7 @@ class TrayManager {
     this.onStopRecording = callbacks.onStopRecording || (() => {});
     this.onQuit = callbacks.onQuit || (() => app.quit());
 
-    // Create icon for tray (simple red circle)
+    // Create icon for tray (using icon.png)
     const icon = this.createIcon();
     this.tray = new Tray(icon);
 
@@ -36,7 +36,30 @@ class TrayManager {
   }
 
   createIcon(recording = false) {
-    // Create icon programmatically (16x16 or 22x22)
+    // Load icon from file
+    const iconPath = path.join(__dirname, "../../renderer/assets/icon.png");
+    let icon = nativeImage.createFromPath(iconPath);
+
+    // If icon file doesn't exist, fallback to programmatic icon
+    if (icon.isEmpty()) {
+      console.log("[TRAY] Icon file not found, using fallback");
+      return this.createFallbackIcon(recording);
+    }
+
+    // Resize icon to appropriate size for system tray (typically 16x16 or 22x22)
+    // Different Linux DEs may prefer different sizes, so we'll use a standard size
+    const traySize = process.platform === "linux" ? 22 : 16;
+    icon = icon.resize({ width: traySize, height: traySize });
+
+    // If recording, we can optionally add a red overlay or indicator
+    // For now, we'll just use the normal icon
+    // You could enhance this later to show a recording indicator
+
+    return icon;
+  }
+
+  createFallbackIcon(recording = false) {
+    // Fallback: Create icon programmatically (16x16 or 22x22)
     const size = 22;
     const canvas = Buffer.alloc(size * size * 4);
 

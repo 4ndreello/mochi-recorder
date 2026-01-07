@@ -38,6 +38,21 @@ function createTray() {
 }
 
 app.whenReady().then(() => {
+  // Set application icon for launcher/desktop
+  const iconPath = path.join(__dirname, "../renderer/assets/icon.png");
+  const { nativeImage } = require("electron");
+  const icon = nativeImage.createFromPath(iconPath);
+  if (!icon.isEmpty()) {
+    app.dock?.setIcon(icon); // macOS (if available)
+    // For Linux, the icon is set via electron-builder during build
+    // But we can also set it here for development
+    if (process.platform === "linux") {
+      // On Linux, the icon is primarily set via the .desktop file
+      // which electron-builder generates, but we ensure it's available
+      app.setAppUserModelId("com.mochi.app");
+    }
+  }
+
   createTray();
 
   // Initialize UpdateManager and start periodic check
