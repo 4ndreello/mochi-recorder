@@ -39,11 +39,50 @@
         justify-content: center;
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
         overflow: hidden;
+        -webkit-app-region: drag;
+        position: relative;
       }
 
       .header {
         text-align: center;
         margin-bottom: 20px;
+        cursor: move;
+        padding: 8px;
+        margin: -8px -8px 20px -8px;
+        border-radius: 12px 12px 0 0;
+        position: relative;
+        width: 100%;
+      }
+
+      .drag-handle {
+        position: absolute;
+        top: 8px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        opacity: 0.5;
+        cursor: move;
+        pointer-events: none;
+        z-index: 10;
+      }
+
+      .drag-handle:hover {
+        opacity: 0.7;
+      }
+
+      .drag-row {
+        display: flex;
+        gap: 3px;
+        justify-content: center;
+      }
+
+      .drag-dot {
+        width: 4px;
+        height: 4px;
+        background: #aaa;
+        border-radius: 50%;
       }
 
       .header h2 {
@@ -67,6 +106,7 @@
         margin-bottom: 20px;
         width: 100%;
         font-size: 12px;
+        -webkit-app-region: no-drag;
       }
 
       .version-row {
@@ -97,6 +137,7 @@
         display: none;
         width: 100%;
         margin-bottom: 16px;
+        -webkit-app-region: no-drag;
       }
 
       .progress-container.active {
@@ -129,6 +170,7 @@
         display: flex;
         gap: 10px;
         width: 100%;
+        -webkit-app-region: no-drag;
       }
 
       button {
@@ -145,6 +187,7 @@
         align-items: center;
         justify-content: center;
         gap: 8px;
+        -webkit-app-region: no-drag;
       }
 
       button:hover:not(:disabled) {
@@ -184,6 +227,7 @@
         border-radius: 12px;
         color: #4ade80;
         font-size: 13px;
+        -webkit-app-region: no-drag;
       }
 
       .download-complete.active {
@@ -212,6 +256,18 @@
   </head>
   <body>
     <div class="dialog-container">
+      <div class="drag-handle">
+        <div class="drag-row">
+          <div class="drag-dot"></div>
+          <div class="drag-dot"></div>
+          <div class="drag-dot"></div>
+        </div>
+        <div class="drag-row">
+          <div class="drag-dot"></div>
+          <div class="drag-dot"></div>
+          <div class="drag-dot"></div>
+        </div>
+      </div>
       <div class="header">
         <h2>New Update Available</h2>
         <p>A new version of Mochi is available for download.</p>
