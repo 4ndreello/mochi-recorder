@@ -3,12 +3,20 @@ const {
   getSystemMicrophone,
 } = require("../utils/env-detector");
 
+const QUALITY_CRF_MAP = {
+  low: 28,
+  medium: 23,
+  high: 18,
+};
+
 class BaseCapture {
   constructor() {
     this.ffmpegProcess = null;
     this.region = null;
     this.useMicrophone = false;
     this.useSystemAudio = true;
+    this.fps = 30;
+    this.quality = "medium";
   }
 
   setRegion(region) {
@@ -30,6 +38,18 @@ class BaseCapture {
 
   setUseSystemAudio(useSystemAudio) {
     this.useSystemAudio = useSystemAudio;
+  }
+
+  setFps(fps) {
+    this.fps = fps;
+  }
+
+  setQuality(quality) {
+    this.quality = quality;
+  }
+
+  getCrf() {
+    return QUALITY_CRF_MAP[this.quality] || 23;
   }
 
   /**
@@ -93,17 +113,15 @@ class BaseCapture {
     return null;
   }
 
-  /**
-   * Builds common encoding arguments
-   */
   buildEncodingArgs() {
+    const crf = this.getCrf();
     return [
       "-c:v",
       "libx264",
       "-preset",
       "medium",
       "-crf",
-      "23",
+      String(crf),
       "-threads",
       "4",
       "-pix_fmt",
@@ -112,8 +130,6 @@ class BaseCapture {
       "aac",
       "-b:a",
       "128k",
-      // Don't use -shortest here, as it may cut audio
-      // stopRecording() with SIGINT ensures correct finalization
     ];
   }
 
@@ -203,18 +219,17 @@ class BaseCapture {
       args.push("-an");
     }
 
-    // Add encoding arguments (but skip audio codec if no audio)
     if (audioCount > 0) {
       args.push(...this.buildEncodingArgs());
     } else {
-      // Only video encoding args
+      const crf = this.getCrf();
       args.push(
         "-c:v",
         "libx264",
         "-preset",
         "medium",
         "-crf",
-        "23",
+        String(crf),
         "-threads",
         "4",
         "-pix_fmt",

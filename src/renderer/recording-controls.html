@@ -31,7 +31,8 @@
                 justify-content: flex-end;
                 height: 100%;
                 width: 100%;
-                padding: 4px;
+                padding: 8px;
+                padding-bottom: 6px;
             }
 
             .container.position-bottom {
@@ -473,6 +474,127 @@
                 stroke-width: 2;
             }
 
+            /* Gear Button */
+            .gear-btn {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 28px;
+                height: 28px;
+                background: rgba(60, 60, 60, 0.8);
+                border: none;
+                border-radius: 8px;
+                cursor: pointer;
+                transition: all 0.15s ease;
+            }
+
+            .gear-btn:hover {
+                background: rgba(80, 80, 80, 0.9);
+                transform: scale(1.08);
+            }
+
+            .gear-btn:active {
+                transform: scale(0.95);
+            }
+
+            .gear-btn.active {
+                background: rgba(102, 126, 234, 0.9);
+            }
+
+            .gear-btn.disabled {
+                opacity: 0.4;
+                cursor: not-allowed;
+                pointer-events: none;
+            }
+
+            .gear-btn svg {
+                width: 14px;
+                height: 14px;
+                stroke: rgba(255, 255, 255, 0.85);
+                stroke-width: 1.5;
+                fill: none;
+                transition: transform 0.3s ease;
+            }
+
+            .gear-btn.active svg {
+                transform: rotate(90deg);
+            }
+
+            /* Settings Panel */
+            .settings-panel {
+                display: flex;
+                flex-direction: column;
+                gap: 6px;
+                margin-bottom: 8px;
+                opacity: 0;
+                visibility: hidden;
+                transform: translateY(8px);
+                transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s ease;
+                pointer-events: none;
+            }
+
+            .settings-panel.visible {
+                opacity: 1;
+                visibility: visible;
+                transform: translateY(0);
+                pointer-events: auto;
+            }
+
+            .settings-row {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                background: rgba(30, 30, 30, 0.85);
+                backdrop-filter: blur(12px);
+                -webkit-backdrop-filter: blur(12px);
+                padding: 6px 10px;
+                border-radius: 10px;
+                border: 1px solid rgba(255, 255, 255, 0.06);
+            }
+
+            .row-label {
+                font-size: 10px;
+                font-weight: 600;
+                color: rgba(255, 255, 255, 0.5);
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                min-width: 55px;
+            }
+
+            .row-buttons {
+                display: flex;
+                gap: 4px;
+            }
+
+            .setting-opt {
+                padding: 5px 10px;
+                font-size: 11px;
+                font-weight: 500;
+                color: rgba(255, 255, 255, 0.7);
+                background: rgba(60, 60, 60, 0.6);
+                border: 1px solid rgba(255, 255, 255, 0.08);
+                border-radius: 6px;
+                cursor: pointer;
+                transition: all 0.15s ease;
+            }
+
+            .setting-opt:hover {
+                background: rgba(80, 80, 80, 0.7);
+                color: rgba(255, 255, 255, 0.9);
+            }
+
+            .setting-opt.active {
+                background: rgba(102, 126, 234, 0.85);
+                border-color: rgba(102, 126, 234, 0.5);
+                color: #fff;
+            }
+
+            .position-bottom .settings-panel {
+                margin-bottom: 0;
+                margin-top: 8px;
+                order: 1;
+            }
+
             .processing-status {
                 display: none;
                 align-items: center;
@@ -530,6 +652,25 @@
             <div class="processing-status" id="processingStatus">
                 <div class="spinner"></div>
                 <span>Processing...</span>
+            </div>
+
+            <div class="settings-panel" id="settingsPanel">
+                <div class="settings-row">
+                    <span class="row-label">Qualidade</span>
+                    <div class="row-buttons">
+                        <button class="setting-opt" data-type="quality" data-value="low">Baixa</button>
+                        <button class="setting-opt active" data-type="quality" data-value="medium">Média</button>
+                        <button class="setting-opt" data-type="quality" data-value="high">Alta</button>
+                    </div>
+                </div>
+                <div class="settings-row">
+                    <span class="row-label">FPS</span>
+                    <div class="row-buttons">
+                        <button class="setting-opt" data-type="fps" data-value="24">24</button>
+                        <button class="setting-opt active" data-type="fps" data-value="30">30</button>
+                        <button class="setting-opt" data-type="fps" data-value="60">60</button>
+                    </div>
+                </div>
             </div>
 
             <div class="action-buttons" id="actionButtons">
@@ -658,6 +799,16 @@
                     </svg>
                 </button>
                 <button
+                    class="gear-btn"
+                    id="gearButton"
+                    title="Settings"
+                >
+                    <svg viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="3" />
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                    </svg>
+                </button>
+                <button
                     class="control-btn start-btn"
                     id="startButton"
                     title="Start recording"
@@ -705,10 +856,14 @@
             const errorMsg = document.getElementById("errorMsg");
             const micButton = document.getElementById("micButton");
             const systemAudioButton = document.getElementById("systemAudioButton");
+            const gearButton = document.getElementById("gearButton");
+            const settingsPanel = document.getElementById("settingsPanel");
 
             let isMicEnabled = false;
             let isSystemAudioEnabled = true;
             let recordingState = "ready";
+            let isSettingsOpen = false;
+            let currentSettings = { fps: 30, quality: "medium" };
 
             const uploadBtnOriginalHtml = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -869,6 +1024,57 @@
 
             initMicStatus();
             initSystemAudioStatus();
+            initSettings();
+
+            async function initSettings() {
+                const settings = await ipcRenderer.invoke("get-settings");
+                if (settings) {
+                    currentSettings = settings;
+                    updateSettingsUI();
+                }
+            }
+
+            function updateSettingsUI() {
+                document.querySelectorAll(".setting-opt").forEach((btn) => {
+                    const type = btn.dataset.type;
+                    const value = btn.dataset.value;
+                    const isActive =
+                        (type === "fps" && parseInt(value) === currentSettings.fps) ||
+                        (type === "quality" && value === currentSettings.quality);
+                    btn.classList.toggle("active", isActive);
+                });
+            }
+
+            function toggleSettings() {
+                if (recordingState !== "ready") return;
+
+                isSettingsOpen = !isSettingsOpen;
+                settingsPanel.classList.toggle("visible", isSettingsOpen);
+                gearButton.classList.toggle("active", isSettingsOpen);
+            }
+
+            gearButton.addEventListener("click", toggleSettings);
+
+            settingsPanel.addEventListener("click", async (e) => {
+                const btn = e.target.closest(".setting-opt");
+                if (!btn) return;
+
+                const type = btn.dataset.type;
+                const value = btn.dataset.value;
+
+                btn.parentElement.querySelectorAll(".setting-opt").forEach((b) => {
+                    b.classList.remove("active");
+                });
+                btn.classList.add("active");
+
+                if (type === "fps") {
+                    currentSettings.fps = parseInt(value);
+                } else if (type === "quality") {
+                    currentSettings.quality = value;
+                }
+
+                await ipcRenderer.invoke("set-settings", currentSettings);
+            });
 
             // Event: user clicks start recording button
             startButton.addEventListener("click", () => {
@@ -877,17 +1083,23 @@
                 recordingState = "starting";
                 canClose = false;
                 
+                if (isSettingsOpen) {
+                    isSettingsOpen = false;
+                    settingsPanel.classList.remove("visible");
+                    gearButton.classList.remove("active");
+                }
+                
                 startButton.disabled = true;
                 startButton.innerHTML = '<div class="btn-spinner"></div>';
                 micButton.classList.add("disabled");
                 systemAudioButton.classList.add("disabled");
+                gearButton.classList.add("disabled");
                 closeButton.classList.remove("visible");
                 recLabel.textContent = "STARTING...";
 
                 ipcRenderer.send("start-recording-clicked");
             });
 
-            // Event: recording actually started (confirmation from main)
             ipcRenderer.on("recording-started", () => {
                 recordingState = "recording";
                 isRecording = true;
@@ -904,6 +1116,7 @@
 
                 micButton.classList.add("disabled");
                 systemAudioButton.classList.add("disabled");
+                gearButton.style.display = "none";
 
                 startTime = Date.now();
                 timerInterval = setInterval(updateTimer, 1000);

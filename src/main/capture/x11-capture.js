@@ -187,7 +187,7 @@ class X11Capture extends BaseCapture {
       "-s",
       size,
       "-r",
-      "30",
+      String(this.fps),
       "-i",
       `${this.display}+${offset}`,
     ];

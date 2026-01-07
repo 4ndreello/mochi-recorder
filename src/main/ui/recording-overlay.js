@@ -6,10 +6,10 @@ class RecordingOverlay {
     this.borderWindow = null;
     this.controlsWindow = null;
     this.region = null;
-    this.controlsWidth = 340;
-    this.controlsHeight = 44;
-    this.expandedControlsWidth = 320;
-    this.expandedControlsHeight = 110;
+    this.controlsWidth = 400;
+    this.controlsHeight = 140;
+    this.expandedControlsWidth = 400;
+    this.expandedControlsHeight = 140;
     this.positionSide = "top";
     this.controlsGap = 12;
   }

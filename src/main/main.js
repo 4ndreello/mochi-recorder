@@ -26,6 +26,10 @@ let metadataPath = "";
 let selectedRegion = null;
 let useMicrophone = false;
 let useSystemAudio = true;
+let recordingSettings = {
+  fps: 30,
+  quality: "medium",
+};
 
 // Garantir que apenas uma instância do Mochi esteja rodando
 const gotTheLock = app.requestSingleInstanceLock();
@@ -163,6 +167,8 @@ async function startCapture() {
     captureManager = new CaptureManager();
     captureManager.setUseMicrophone(useMicrophone);
     captureManager.setUseSystemAudio(useSystemAudio);
+    captureManager.setFps(recordingSettings.fps);
+    captureManager.setQuality(recordingSettings.quality);
     mouseTracker = new MouseTracker();
     eventRecorder = new EventRecorder(metadataPath);
 
@@ -314,4 +320,14 @@ ipcMain.handle("get-system-audio-status", () => {
 ipcMain.handle("toggle-system-audio", () => {
   useSystemAudio = !useSystemAudio;
   return { useSystemAudio };
+});
+
+ipcMain.handle("get-settings", () => {
+  return recordingSettings;
+});
+
+ipcMain.handle("set-settings", (event, settings) => {
+  recordingSettings = { ...recordingSettings, ...settings };
+  console.log("[MAIN] Settings updated:", recordingSettings);
+  return recordingSettings;
 });
