@@ -1,279 +1,279 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Atualização Disponível</title>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Update Available</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
 
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #1a1a1a;
-      color: #fff;
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
-      position: relative;
-    }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+        background: #1a1a1a;
+        color: #fff;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        position: relative;
+      }
 
-    .header {
-      text-align: center;
-      margin-bottom: 20px;
-    }
+      .header {
+        text-align: center;
+        margin-bottom: 20px;
+      }
 
-    .header h2 {
-      font-size: 18px;
-      font-weight: 600;
-      margin-bottom: 8px;
-      color: #fff;
-    }
+      .header h2 {
+        font-size: 18px;
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: #fff;
+      }
 
-    .header p {
-      font-size: 13px;
-      color: #aaa;
-      line-height: 1.4;
-    }
+      .header p {
+        font-size: 13px;
+        color: #aaa;
+        line-height: 1.4;
+      }
 
-    .version-info {
-      background: #252525;
-      border: 1px solid #333;
-      border-radius: 8px;
-      padding: 12px;
-      margin-bottom: 20px;
-      width: 100%;
-      font-size: 12px;
-    }
+      .version-info {
+        background: #252525;
+        border: 1px solid #333;
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 20px;
+        width: 100%;
+        font-size: 12px;
+      }
 
-    .version-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 6px;
-    }
+      .version-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 6px;
+      }
 
-    .version-row:last-child {
-      margin-bottom: 0;
-    }
+      .version-row:last-child {
+        margin-bottom: 0;
+      }
 
-    .version-label {
-      color: #888;
-    }
+      .version-label {
+        color: #888;
+      }
 
-    .version-value {
-      color: #fff;
-      font-weight: 500;
-    }
+      .version-value {
+        color: #fff;
+        font-weight: 500;
+      }
 
-    .version-value.new {
-      color: #4ade80;
-    }
+      .version-value.new {
+        color: #4ade80;
+      }
 
-    .progress-container {
-      display: none;
-      width: 100%;
-      margin-bottom: 16px;
-    }
+      .progress-container {
+        display: none;
+        width: 100%;
+        margin-bottom: 16px;
+      }
 
-    .progress-container.active {
-      display: block;
-    }
+      .progress-container.active {
+        display: block;
+      }
 
-    .progress-bar {
-      width: 100%;
-      height: 6px;
-      background: rgba(60, 60, 60, 0.4);
-      border-radius: 3px;
-      overflow: hidden;
-    }
+      .progress-bar {
+        width: 100%;
+        height: 6px;
+        background: rgba(60, 60, 60, 0.4);
+        border-radius: 3px;
+        overflow: hidden;
+      }
 
-    .progress-fill {
-      height: 100%;
-      background: linear-gradient(90deg, #667eea, #764ba2);
-      width: 0%;
-      transition: width 0.15s ease-out;
-    }
+      .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #667eea, #764ba2);
+        width: 0%;
+        transition: width 0.15s ease-out;
+      }
 
-    .progress-text {
-      font-size: 11px;
-      color: #888;
-      text-align: center;
-      margin-top: 6px;
-    }
+      .progress-text {
+        font-size: 11px;
+        color: #888;
+        text-align: center;
+        margin-top: 6px;
+      }
 
-    .buttons {
-      display: flex;
-      gap: 10px;
-      width: 100%;
-    }
+      .buttons {
+        display: flex;
+        gap: 10px;
+        width: 100%;
+      }
 
-    button {
-      flex: 1;
-      padding: 12px 16px;
-      border: 1px solid #333;
-      border-radius: 8px;
-      background: #252525;
-      color: #fff;
-      font-size: 14px;
-      cursor: pointer;
-      transition: all 0.15s ease;
-    }
+      button {
+        flex: 1;
+        padding: 12px 16px;
+        border: 1px solid #333;
+        border-radius: 8px;
+        background: #252525;
+        color: #fff;
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+      }
 
-    button:hover:not(:disabled) {
-      background: #2a2a2a;
-      border-color: #444;
-    }
+      button:hover:not(:disabled) {
+        background: #2a2a2a;
+        border-color: #444;
+      }
 
-    button:active:not(:disabled) {
-      background: #222;
-    }
+      button:active:not(:disabled) {
+        background: #222;
+      }
 
-    button:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
 
-    button.primary {
-      background: #667eea;
-      border-color: #667eea;
-    }
+      button.primary {
+        background: #667eea;
+        border-color: #667eea;
+      }
 
-    button.primary:hover:not(:disabled) {
-      background: #5568d3;
-    }
+      button.primary:hover:not(:disabled) {
+        background: #5568d3;
+      }
 
-    button.secondary {
-      background: #252525;
-    }
+      button.secondary {
+        background: #252525;
+      }
 
-    .download-complete {
-      display: none;
-      text-align: center;
-      margin-bottom: 16px;
-      padding: 12px;
-      background: rgba(74, 222, 128, 0.1);
-      border: 1px solid rgba(74, 222, 128, 0.3);
-      border-radius: 8px;
-      color: #4ade80;
-      font-size: 13px;
-    }
+      .download-complete {
+        display: none;
+        text-align: center;
+        margin-bottom: 16px;
+        padding: 12px;
+        background: rgba(74, 222, 128, 0.1);
+        border: 1px solid rgba(74, 222, 128, 0.3);
+        border-radius: 8px;
+        color: #4ade80;
+        font-size: 13px;
+      }
 
-    .download-complete.active {
-      display: block;
-    }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <h2>Nova Atualização Disponível</h2>
-    <p>Uma nova versão do Mochi está disponível para download.</p>
-  </div>
-
-  <div class="version-info">
-    <div class="version-row">
-      <span class="version-label">Versão Atual:</span>
-      <span class="version-value" id="currentVersion">-</span>
+      .download-complete.active {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <h2>New Update Available</h2>
+      <p>A new version of Mochi is available for download.</p>
     </div>
-    <div class="version-row">
-      <span class="version-label">Nova Versão:</span>
-      <span class="version-value new" id="newVersion">-</span>
+
+    <div class="version-info">
+      <div class="version-row">
+        <span class="version-label">Current Version:</span>
+        <span class="version-value" id="currentVersion">-</span>
+      </div>
+      <div class="version-row">
+        <span class="version-label">New Version:</span>
+        <span class="version-value new" id="newVersion">-</span>
+      </div>
     </div>
-  </div>
 
-  <div class="progress-container" id="progressContainer">
-    <div class="progress-bar">
-      <div class="progress-fill" id="progressFill"></div>
+    <div class="progress-container" id="progressContainer">
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+      <div class="progress-text" id="progressText">0%</div>
     </div>
-    <div class="progress-text" id="progressText">0%</div>
-  </div>
 
-  <div class="download-complete" id="downloadComplete">
-    Download concluído! O aplicativo será reiniciado para instalar a atualização.
-  </div>
+    <div class="download-complete" id="downloadComplete">
+      Download complete! The application will restart to install the update.
+    </div>
 
-  <div class="buttons">
-    <button class="secondary" id="btnLater">Depois</button>
-    <button class="primary" id="btnUpdate">Atualizar Agora</button>
-  </div>
+    <div class="buttons">
+      <button class="secondary" id="btnLater">Later</button>
+      <button class="primary" id="btnUpdate">Update Now</button>
+    </div>
 
-  <script>
-    const { ipcRenderer } = require('electron');
+    <script>
+      const { ipcRenderer } = require("electron");
 
-    const currentVersionEl = document.getElementById('currentVersion');
-    const newVersionEl = document.getElementById('newVersion');
-    const progressContainer = document.getElementById('progressContainer');
-    const progressFill = document.getElementById('progressFill');
-    const progressText = document.getElementById('progressText');
-    const downloadComplete = document.getElementById('downloadComplete');
-    const btnUpdate = document.getElementById('btnUpdate');
-    const btnLater = document.getElementById('btnLater');
+      const currentVersionEl = document.getElementById("currentVersion");
+      const newVersionEl = document.getElementById("newVersion");
+      const progressContainer = document.getElementById("progressContainer");
+      const progressFill = document.getElementById("progressFill");
+      const progressText = document.getElementById("progressText");
+      const downloadComplete = document.getElementById("downloadComplete");
+      const btnUpdate = document.getElementById("btnUpdate");
+      const btnLater = document.getElementById("btnLater");
 
-    let isDownloading = false;
-    let isDownloadComplete = false;
+      let isDownloading = false;
+      let isDownloadComplete = false;
 
-    ipcRenderer.on('update-info', (event, info) => {
-      currentVersionEl.textContent = info.currentVersion;
-      newVersionEl.textContent = info.newVersion;
-    });
+      ipcRenderer.on("update-info", (event, info) => {
+        currentVersionEl.textContent = info.currentVersion;
+        newVersionEl.textContent = info.newVersion;
+      });
 
-    ipcRenderer.on('download-progress', (event, percent) => {
-      if (!isDownloading) {
-        isDownloading = true;
-        progressContainer.classList.add('active');
-        btnUpdate.disabled = true;
+      ipcRenderer.on("download-progress", (event, percent) => {
+        if (!isDownloading) {
+          isDownloading = true;
+          progressContainer.classList.add("active");
+          btnUpdate.disabled = true;
+          btnLater.disabled = true;
+          btnUpdate.textContent = "Downloading...";
+        }
+
+        progressFill.style.width = percent + "%";
+        progressText.textContent = percent + "%";
+      });
+
+      ipcRenderer.on("download-complete", () => {
+        isDownloadComplete = true;
+        progressContainer.classList.remove("active");
+        downloadComplete.classList.add("active");
+        btnUpdate.textContent = "Restart and Install";
+        btnUpdate.disabled = false;
         btnLater.disabled = true;
-        btnUpdate.textContent = 'Baixando...';
-      }
+      });
 
-      progressFill.style.width = percent + '%';
-      progressText.textContent = percent + '%';
-    });
-
-    ipcRenderer.on('download-complete', () => {
-      isDownloadComplete = true;
-      progressContainer.classList.remove('active');
-      downloadComplete.classList.add('active');
-      btnUpdate.textContent = 'Reiniciar e Instalar';
-      btnUpdate.disabled = false;
-      btnLater.disabled = true;
-    });
-
-    btnUpdate.addEventListener('click', async () => {
-      if (isDownloadComplete) {
-        // Instalar e reiniciar
-        try {
-          await ipcRenderer.invoke('update-install');
-        } catch (error) {
-          console.error('Erro ao instalar atualização:', error);
-          alert('Erro ao instalar atualização. Por favor, tente novamente.');
+      btnUpdate.addEventListener("click", async () => {
+        if (isDownloadComplete) {
+          // Install and restart
+          try {
+            await ipcRenderer.invoke("update-install");
+          } catch (error) {
+            console.error("Error installing update:", error);
+            alert("Error installing update. Please try again.");
+          }
+        } else if (!isDownloading) {
+          // Start download
+          try {
+            await ipcRenderer.invoke("update-download");
+          } catch (error) {
+            console.error("Error downloading update:", error);
+            alert("Error downloading update. Check your internet connection.");
+            progressContainer.classList.remove("active");
+            btnUpdate.disabled = false;
+            btnUpdate.textContent = "Update Now";
+            isDownloading = false;
+          }
         }
-      } else if (!isDownloading) {
-        // Iniciar download
-        try {
-          await ipcRenderer.invoke('update-download');
-        } catch (error) {
-          console.error('Erro ao baixar atualização:', error);
-          alert('Erro ao baixar atualização. Verifique sua conexão com a internet.');
-          progressContainer.classList.remove('active');
-          btnUpdate.disabled = false;
-          btnUpdate.textContent = 'Atualizar Agora';
-          isDownloading = false;
-        }
-      }
-    });
+      });
 
-    btnLater.addEventListener('click', () => {
-      ipcRenderer.invoke('update-skip');
-      window.close();
-    });
-  </script>
-</body>
+      btnLater.addEventListener("click", () => {
+        ipcRenderer.invoke("update-skip");
+        window.close();
+      });
+    </script>
+  </body>
 </html>
-

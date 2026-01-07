@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="en">
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -504,14 +504,14 @@
         <div class="container" id="container">
             <div class="processing-status" id="processingStatus">
                 <div class="spinner"></div>
-                <span>Processando...</span>
+                <span>Processing...</span>
             </div>
 
             <div class="action-buttons" id="actionButtons">
                 <button
                     class="action-btn"
                     id="btnCopy"
-                    title="Copiar para transferência"
+                    title="Copy to clipboard"
                 >
                     <svg
                         viewBox="0 0 24 24"
@@ -531,12 +531,12 @@
                             d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
                         ></path>
                     </svg>
-                    Copiar
+                    Copy
                 </button>
                 <button
                     class="action-btn primary"
                     id="btnUpload"
-                    title="Upload na internet"
+                    title="Upload to internet"
                 >
                     <svg
                         viewBox="0 0 24 24"
@@ -578,7 +578,7 @@
                 <button
                     class="mic-btn muted"
                     id="micButton"
-                    title="Alternar microfone"
+                    title="Toggle microphone"
                 >
                     <svg class="mic-icon-on" viewBox="0 0 24 24">
                         <path
@@ -607,14 +607,14 @@
                 <button
                     class="control-btn start-btn"
                     id="startButton"
-                    title="Iniciar gravação"
+                    title="Start recording"
                 >
                     <div class="start-icon"></div>
                 </button>
                 <button
                     class="control-btn"
                     id="stopButton"
-                    title="Parar gravação"
+                    title="Stop recording"
                     style="display: none"
                 >
                     <div class="stop-icon"></div>
@@ -622,7 +622,7 @@
                 <button
                     class="close-button"
                     id="closeButton"
-                    title="Fechar (ESC)"
+                    title="Close (ESC)"
                 >
                     <svg viewBox="0 0 24 24" fill="none">
                         <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -690,7 +690,7 @@
                     audioMeter.classList.add("visible");
                     updateMeter();
                 } catch (err) {
-                    console.log("Não foi possível acessar o microfone:", err);
+                    console.log("Could not access microphone:", err);
                 }
             }
 
@@ -730,11 +730,11 @@
                 meterBar.style.height = "0%";
             }
 
-            // Estado inicial: ready (amarelo, pronto para gravar)
+            // Initial state: ready (yellow, ready to record)
             function initReadyState() {
                 recordingState = "ready";
                 recordingDot.classList.add("ready");
-                recLabel.textContent = "AGUARDANDO";
+                recLabel.textContent = "WAITING";
                 timerElement.textContent = "0:00";
                 startButton.style.display = "flex";
                 stopButton.style.display = "none";
@@ -764,18 +764,18 @@
                 if (isMicEnabled) {
                     micButton.classList.remove("muted");
                     micButton.classList.add("unmuted");
-                    micButton.title = "Microfone ligado";
+                    micButton.title = "Microphone on";
                     startAudioMeter();
                 } else {
                     micButton.classList.remove("unmuted");
                     micButton.classList.add("muted");
-                    micButton.title = "Microfone desligado";
+                    micButton.title = "Microphone off";
                     stopAudioMeter();
                 }
             }
 
             micButton.addEventListener("click", async () => {
-                // Só permite alterar microfone no estado ready
+                // Only allow microphone change in ready state
                 if (recordingState !== "ready") return;
 
                 const result = await ipcRenderer.invoke("toggle-microphone");
@@ -785,7 +785,7 @@
 
             initMicStatus();
 
-            // Evento: usuário clica no botão de iniciar gravação
+            // Event: user clicks start recording button
             startButton.addEventListener("click", () => {
                 if (recordingState !== "ready") return;
 
@@ -796,12 +796,12 @@
                 startButton.innerHTML = '<div class="btn-spinner"></div>';
                 micButton.classList.add("disabled");
                 closeButton.classList.remove("visible");
-                recLabel.textContent = "INICIANDO...";
+                recLabel.textContent = "STARTING...";
 
                 ipcRenderer.send("start-recording-clicked");
             });
 
-            // Evento: gravação realmente iniciou (confirmação do main)
+            // Event: recording actually started (confirmation from main)
             ipcRenderer.on("recording-started", () => {
                 recordingState = "recording";
                 isRecording = true;
@@ -870,7 +870,7 @@
             });
 
             ipcRenderer.on("recording-finished", (event, data) => {
-                console.log("[CONTROLS] recording-finished recebido:", data);
+                console.log("[CONTROLS] recording-finished received:", data);
                 videoPath = data.path;
                 canClose = true;
 
@@ -886,16 +886,16 @@
             });
 
             ipcRenderer.on("recording-error", (event, data) => {
-                console.log("[CONTROLS] recording-error recebido:", data);
+                console.log("[CONTROLS] recording-error received:", data);
                 canClose = true;
 
                 stopAudioMeter();
                 processingStatus.classList.remove("visible");
                 recordingDot.classList.remove("paused");
                 recordingDot.classList.add("error");
-                recLabel.textContent = "ERRO";
+                recLabel.textContent = "ERROR";
 
-                errorMsg.textContent = data.error || "Erro desconhecido";
+                errorMsg.textContent = data.error || "Unknown error";
                 errorMsg.classList.add("visible");
 
                 closeButton.classList.add("visible");
@@ -935,7 +935,7 @@
             btnUpload.addEventListener("click", async () => {
                 if (uploadedUrl) {
                     clipboard.writeText(uploadedUrl);
-                    btnUpload.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Copiado!`;
+                    btnUpload.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Copied!`;
                     btnUpload.classList.add("success");
                     btnUpload.classList.remove("primary");
                     
@@ -950,7 +950,7 @@
                 try {
                     errorMsg.classList.remove("visible");
 
-                    btnUpload.innerHTML = `<div class="btn-spinner"></div> Subindo...`;
+                    btnUpload.innerHTML = `<div class="btn-spinner"></div> Uploading...`;
                     btnUpload.classList.add("uploading");
                     btnUpload.classList.remove("primary");
                     btnUpload.disabled = true;
@@ -968,7 +968,7 @@
                     clipboard.writeText(uploadedUrl);
 
                     topProgress.classList.remove("visible");
-                    btnUpload.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Copiado!`;
+                    btnUpload.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Copied!`;
                     btnUpload.classList.remove("uploading");
                     btnUpload.classList.add("success");
                     btnCopy.disabled = false;

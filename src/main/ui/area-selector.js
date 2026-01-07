@@ -3,7 +3,7 @@ const path = require("path");
 
 class AreaSelector {
   constructor() {
-    this.windows = []; // Array de { window, display }
+    this.windows = []; // Array of { window, display }
     this.selection = null;
     this.callback = null;
     this.areaSelectedHandler = null;
@@ -14,14 +14,14 @@ class AreaSelector {
   create(callback) {
     const displays = screen.getAllDisplays();
 
-    console.log("[AreaSelector] Displays detectados:");
+    console.log("[AreaSelector] Displays detected:");
     displays.forEach((display, i) => {
       console.log(`  Display ${i}: bounds=${JSON.stringify(display.bounds)}`);
     });
 
     this.callback = callback;
 
-    // Criar uma janela para cada monitor
+    // Create a window for each monitor
     displays.forEach((display, index) => {
       const bounds = display.bounds;
 
@@ -75,7 +75,7 @@ class AreaSelector {
       this.windows.push({ window, display, index, targetBounds: bounds });
 
       console.log(
-        `[AreaSelector] Janela ${index} criada para display em (${bounds.x}, ${bounds.y}) ${bounds.width}x${bounds.height}`
+        `[AreaSelector] Window ${index} created for display at (${bounds.x}, ${bounds.y}) ${bounds.width}x${bounds.height}`
       );
     });
 
@@ -85,9 +85,9 @@ class AreaSelector {
   }
 
   setupIpcHandlers() {
-    // Handler quando uma seleção é concluída
+    // Handler when a selection is completed
     this.areaSelectedHandler = (event, data) => {
-      // Encontrar qual janela enviou o evento
+      // Find which window sent the event
       const sourceWindow = this.windows.find(
         (w) => w.window.webContents === event.sender
       );
@@ -95,7 +95,7 @@ class AreaSelector {
       if (sourceWindow) {
         const actualBounds = sourceWindow.window.getBounds();
 
-        // Converter coordenadas relativas para absolutas
+        // Convert relative coordinates to absolute
         const absoluteSelection = {
           x: actualBounds.x + data.x,
           y: actualBounds.y + data.y,
@@ -103,10 +103,10 @@ class AreaSelector {
           height: data.height,
         };
 
-        console.log("[AreaSelector] Seleção recebida:", {
+        console.log("[AreaSelector] Selection received:", {
           displayIndex: sourceWindow.index,
-          relativa: data,
-          absoluta: absoluteSelection,
+          relative: data,
+          absolute: absoluteSelection,
         });
 
         this.selection = absoluteSelection;
@@ -117,20 +117,20 @@ class AreaSelector {
       }
     };
 
-    // Handler quando seleção é cancelada
+    // Handler when selection is cancelled
     this.cancelledHandler = (event) => {
       const sourceWindow = this.windows.find(
         (w) => w.window.webContents === event.sender
       );
 
       if (sourceWindow) {
-        console.log("[AreaSelector] Seleção cancelada");
+        console.log("[AreaSelector] Selection cancelled");
         this.close();
       }
     };
 
-    // Handler quando usuário começa a selecionar em um monitor
-    // Escurece os outros monitores
+    // Handler when user starts selecting on a monitor
+    // Dims other monitors
     this.selectionStartedHandler = (event, data) => {
       const sourceWindow = this.windows.find(
         (w) => w.window.webContents === event.sender
@@ -138,10 +138,10 @@ class AreaSelector {
 
       if (sourceWindow) {
         console.log(
-          `[AreaSelector] Seleção iniciada no display ${sourceWindow.index}`
+          `[AreaSelector] Selection started on display ${sourceWindow.index}`
         );
 
-        // Notificar TODOS os outros monitores para escurecer
+        // Notify ALL other monitors to dim
         this.windows.forEach((w) => {
           if (w.window.webContents !== event.sender) {
             w.window.webContents.send("dim-overlay");
@@ -185,7 +185,7 @@ class AreaSelector {
 
       const actualBounds = window.getBounds();
       console.log(
-        `[AreaSelector] Janela ${index} mostrada em: ${JSON.stringify(actualBounds)} (esperado: ${JSON.stringify(targetBounds)})`
+        `[AreaSelector] Window ${index} shown at: ${JSON.stringify(actualBounds)} (expected: ${JSON.stringify(targetBounds)})`
       );
     });
   }

@@ -16,14 +16,14 @@ class TrayManager {
     this.onStopRecording = callbacks.onStopRecording || (() => {});
     this.onQuit = callbacks.onQuit || (() => app.quit());
 
-    // Criar ícone para o tray (círculo vermelho simples)
+    // Create icon for tray (simple red circle)
     const icon = this.createIcon();
     this.tray = new Tray(icon);
 
-    this.tray.setToolTip("Mochi - Clique para gravar");
+    this.tray.setToolTip("Mochi - Click to record");
     this.updateMenu();
 
-    // Clique no ícone
+    // Click on icon
     this.tray.on("click", () => {
       if (this.isRecording) {
         this.onStopRecording();
@@ -36,7 +36,7 @@ class TrayManager {
   }
 
   createIcon(recording = false) {
-    // Criar ícone programaticamente (16x16 ou 22x22)
+    // Create icon programmatically (16x16 or 22x22)
     const size = 22;
     const canvas = Buffer.alloc(size * size * 4);
 
@@ -53,20 +53,20 @@ class TrayManager {
 
         if (distance <= radius) {
           if (recording) {
-            // Vermelho pulsante quando gravando
+            // Pulsing red when recording
             canvas[idx] = 244; // R
             canvas[idx + 1] = 67; // G
             canvas[idx + 2] = 54; // B
             canvas[idx + 3] = 255; // A
           } else {
-            // Cinza quando parado
+            // Gray when stopped
             canvas[idx] = 100; // R
             canvas[idx + 1] = 100; // G
             canvas[idx + 2] = 100; // B
             canvas[idx + 3] = 255; // A
           }
         } else if (distance <= radius + 1) {
-          // Borda suave (anti-aliasing simples)
+          // Smooth border (simple anti-aliasing)
           const alpha = Math.max(0, 1 - (distance - radius));
           if (recording) {
             canvas[idx] = 244;
@@ -79,7 +79,7 @@ class TrayManager {
           }
           canvas[idx + 3] = Math.floor(alpha * 255);
         } else {
-          // Transparente
+          // Transparent
           canvas[idx] = 0;
           canvas[idx + 1] = 0;
           canvas[idx + 2] = 0;
@@ -95,12 +95,12 @@ class TrayManager {
   }
 
   updateMenu() {
-    const versionLabel = `Versão ${packageJson.version}`;
+    const versionLabel = `Version ${packageJson.version}`;
 
     const menuItems = this.isRecording
       ? [
           {
-            label: "⏹ Parar Gravação",
+            label: "⏹ Stop Recording",
             click: () => this.onStopRecording(),
           },
           { type: "separator" },
@@ -110,13 +110,13 @@ class TrayManager {
           },
           { type: "separator" },
           {
-            label: "Sair",
+            label: "Quit",
             click: () => this.onQuit(),
           },
         ]
       : [
           {
-            label: "Iniciar Gravação",
+            label: "Start Recording",
             click: () => this.onStartRecording(),
           },
           { type: "separator" },
@@ -126,7 +126,7 @@ class TrayManager {
           },
           { type: "separator" },
           {
-            label: "Sair",
+            label: "Quit",
             click: () => this.onQuit(),
           },
         ];
@@ -138,18 +138,18 @@ class TrayManager {
   setRecording(isRecording) {
     this.isRecording = isRecording;
 
-    // Atualizar ícone
+    // Update icon
     const icon = this.createIcon(isRecording);
     this.tray.setImage(icon);
 
-    // Atualizar tooltip
+    // Update tooltip
     this.tray.setToolTip(
       isRecording
-        ? "Mochi - Gravando... (clique para parar)"
-        : "Mochi - Clique para gravar"
+        ? "Mochi - Recording... (click to stop)"
+        : "Mochi - Click to record"
     );
 
-    // Atualizar menu
+    // Update menu
     this.updateMenu();
   }
 

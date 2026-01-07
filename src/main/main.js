@@ -40,9 +40,9 @@ function createTray() {
 app.whenReady().then(() => {
   createTray();
 
-  // Inicializar UpdateManager e começar verificação periódica
+  // Initialize UpdateManager and start periodic check
   updateManager = new UpdateManager();
-  updateManager.startPeriodicCheck(30); // Verificar a cada 30 minutos
+  updateManager.startPeriodicCheck(30); // Check every 30 minutes
 
   app.on("activate", () => {
     if (!trayManager) {
@@ -98,17 +98,17 @@ async function showRecordingOverlay(region) {
 
 async function startCapture() {
   if (!selectedRegion) {
-    console.log("[MAIN] Nenhuma região selecionada");
+    console.log("[MAIN] No region selected");
     return;
   }
 
   if (isRecording || isStartingRecording) {
-    console.log("[MAIN] Já está gravando ou iniciando, ignorando");
+    console.log("[MAIN] Already recording or starting, ignoring");
     return;
   }
 
   isStartingRecording = true;
-  console.log("[MAIN] Iniciando captura...");
+  console.log("[MAIN] Starting capture...");
 
   try {
     const timestamp = Date.now();
@@ -136,7 +136,7 @@ async function startCapture() {
 
     isRecording = true;
     isStartingRecording = false;
-    console.log("[MAIN] Captura iniciada com sucesso!");
+    console.log("[MAIN] Capture started successfully!");
 
     if (recordingOverlay) {
       recordingOverlay.notifyRecordingStarted();
@@ -146,7 +146,7 @@ async function startCapture() {
       trayManager.setRecording(true);
     }
   } catch (error) {
-    console.error("[MAIN] Erro ao iniciar captura:", error);
+    console.error("[MAIN] Error starting capture:", error);
     isRecording = false;
     isStartingRecording = false;
 
@@ -158,19 +158,19 @@ async function startCapture() {
 
 async function stopRecording() {
   console.log(
-    "[MAIN] stopRecording chamado, isRecording:",
+    "[MAIN] stopRecording called, isRecording:",
     isRecording,
     "isStartingRecording:",
     isStartingRecording
   );
 
   if (!isRecording && !isStartingRecording) {
-    console.log("[MAIN] Não está gravando, ignorando");
+    console.log("[MAIN] Not recording, ignoring");
     return;
   }
 
   if (isStartingRecording) {
-    console.log("[MAIN] Ainda iniciando, aguardando...");
+    console.log("[MAIN] Still starting, waiting...");
     await new Promise((resolve) => {
       const checkInterval = setInterval(() => {
         if (!isStartingRecording) {
@@ -182,25 +182,25 @@ async function stopRecording() {
   }
 
   if (!isRecording) {
-    console.log("[MAIN] Gravação não iniciou corretamente");
+    console.log("[MAIN] Recording did not start correctly");
     if (recordingOverlay) {
-      recordingOverlay.notifyError("Gravação não iniciou corretamente");
+      recordingOverlay.notifyError("Recording did not start correctly");
     }
     return;
   }
 
   try {
-    console.log("[MAIN] Parando captura...");
+    console.log("[MAIN] Stopping capture...");
     await captureManager.stopRecording();
-    console.log("[MAIN] Captura parada");
+    console.log("[MAIN] Capture stopped");
 
-    console.log("[MAIN] Parando mouse tracker...");
+    console.log("[MAIN] Stopping mouse tracker...");
     mouseTracker.stop();
-    console.log("[MAIN] Mouse tracker parado");
+    console.log("[MAIN] Mouse tracker stopped");
 
-    console.log("[MAIN] Finalizando event recorder...");
+    console.log("[MAIN] Finishing event recorder...");
     await eventRecorder.finish();
-    console.log("[MAIN] Event recorder finalizado");
+    console.log("[MAIN] Event recorder finished");
 
     isRecording = false;
 
@@ -209,38 +209,38 @@ async function stopRecording() {
     }
 
     const fs = require("fs").promises;
-    console.log("[MAIN] Verificando arquivo de vídeo:", videoPath);
+    console.log("[MAIN] Checking video file:", videoPath);
 
     try {
       const stats = await fs.stat(videoPath);
-      console.log("[MAIN] Arquivo existe, tamanho:", stats.size, "bytes");
+      console.log("[MAIN] File exists, size:", stats.size, "bytes");
 
       if (stats.size === 0) {
-        throw new Error("Arquivo de vídeo está vazio");
+        throw new Error("Video file is empty");
       }
     } catch (error) {
-      console.error("[MAIN] Erro ao verificar vídeo:", error.message);
-      throw new Error("Vídeo não foi gravado corretamente: " + error.message);
+      console.error("[MAIN] Error checking video:", error.message);
+      throw new Error("Video was not recorded correctly: " + error.message);
     }
 
     const outputPath = path.join(
       app.getPath("downloads"),
       `mochi_${Date.now()}.mp4`
     );
-    console.log("[MAIN] Processando vídeo para:", outputPath);
+    console.log("[MAIN] Processing video to:", outputPath);
 
     const processor = new VideoProcessor(videoPath, metadataPath, outputPath);
 
     await processor.process();
 
-    console.log("[MAIN] Vídeo processado com sucesso!");
+    console.log("[MAIN] Video processed successfully!");
 
     if (recordingOverlay) {
-      console.log("[MAIN] Notificando overlay...");
+      console.log("[MAIN] Notifying overlay...");
       recordingOverlay.notifyRecordingFinished(outputPath);
     }
   } catch (error) {
-    console.error("[MAIN] Erro ao parar gravação:", error);
+    console.error("[MAIN] Error stopping recording:", error);
     console.error("[MAIN] Stack:", error.stack);
 
     isRecording = false;

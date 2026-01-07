@@ -17,26 +17,26 @@ class X11Capture extends BaseCapture {
         return { width: parseInt(match[1]), height: parseInt(match[2]) };
       }
     } catch (error) {
-      console.warn("Erro ao detectar resolução, usando padrão:", error);
+      console.warn("Error detecting resolution, using default:", error);
     }
     return { width: 1920, height: 1080 };
   }
 
   async getX11ScreenBounds() {
-    // Obter bounds reais da tela virtual do X11
-    // O x11grab usa coordenadas absolutas da tela virtual, não do Electron
+    // Get real bounds of X11 virtual screen
+    // x11grab uses absolute coordinates of virtual screen, not Electron
     try {
       const output = execSync(`xrandr --current`, {
         encoding: "utf-8",
       });
 
-      // Encontrar o mínimo x,y de todos os displays conectados
-      // Isso nos dá o offset real do X11
+      // Find minimum x,y of all connected displays
+      // This gives us the real X11 offset
       let minX = Infinity,
         minY = Infinity;
       const lines = output.split("\n");
       for (const line of lines) {
-        // Procurar por padrão: 1920x1080+1366+0 ou similar
+        // Look for pattern: 1920x1080+1366+0 or similar
         const match = line.match(/(\d+)x(\d+)\+(\d+)\+(\d+)/);
         if (match) {
           const x = parseInt(match[3]);
@@ -50,14 +50,14 @@ class X11Capture extends BaseCapture {
         return { minX, minY };
       }
     } catch (error) {
-      console.warn("Erro ao detectar bounds do X11:", error);
+      console.warn("Error detecting X11 bounds:", error);
     }
     return { minX: 0, minY: 0 };
   }
 
   async getElectronScreenBounds() {
-    // Obter bounds do Electron para comparar
-    // O Electron pode estar normalizando de forma diferente
+    // Get Electron bounds for comparison
+    // Electron may be normalizing differently
     const { screen } = require("electron");
     const displays = screen.getAllDisplays();
     let minX = Infinity,
@@ -82,7 +82,7 @@ class X11Capture extends BaseCapture {
   }
 
   async findDisplayForCoordinates(x, y) {
-    // Encontrar qual display contém as coordenadas
+    // Find which display contains the coordinates
     const { screen } = require("electron");
     const displays = screen.getAllDisplays();
 
@@ -101,22 +101,22 @@ class X11Capture extends BaseCapture {
   }
 
   /**
-   * Constrói os argumentos de vídeo específicos do X11
+   * Builds X11-specific video arguments
    */
   async buildVideoArgs() {
     const resolution = await this.getScreenResolution();
 
-    // Se houver região selecionada, usar ela; senão, gravar tela inteira
+    // If region is selected, use it; otherwise, record entire screen
     let size, offset;
     if (this.region && this.region.width > 0 && this.region.height > 0) {
       size = `${this.region.width}x${this.region.height}`;
 
-      // O x11grab usa coordenadas absolutas do X11
-      // O Electron pode normalizar coordenadas de forma diferente
+      // x11grab uses absolute X11 coordinates
+      // Electron may normalize coordinates differently
       const x11Bounds = await this.getX11ScreenBounds();
       const electronBounds = await this.getElectronScreenBounds();
 
-      // Encontrar qual display contém a seleção
+      // Find which display contains the selection
       const targetDisplay = await this.findDisplayForCoordinates(
         this.region.x,
         this.region.y
@@ -126,12 +126,12 @@ class X11Capture extends BaseCapture {
         JSON.stringify(targetDisplay.bounds)
       );
 
-      // O Electron e o X11 usam coordenadas absolutas da tela virtual
-      // As coordenadas já devem estar corretas
+      // Electron and X11 use absolute coordinates of virtual screen
+      // Coordinates should already be correct
       let adjustedX = this.region.x;
       let adjustedY = this.region.y;
 
-      // Verificar se a seleção está dentro de algum display
+      // Check if selection is inside any display
       const { screen } = require("electron");
       const displays = screen.getAllDisplays();
       let insideDisplay = false;
@@ -145,7 +145,7 @@ class X11Capture extends BaseCapture {
         ) {
           insideDisplay = true;
           console.log(
-            `[MAIN] [X11Capture] Seleção está dentro do display: ${JSON.stringify(
+            `[MAIN] [X11Capture] Selection is inside display: ${JSON.stringify(
               b
             )}`
           );
@@ -155,17 +155,17 @@ class X11Capture extends BaseCapture {
 
       if (!insideDisplay) {
         console.log(
-          `[MAIN] [X11Capture] AVISO: Seleção está fora de todos os displays!`
+          `[MAIN] [X11Capture] WARNING: Selection is outside all displays!`
         );
         console.log(
-          `[MAIN] [X11Capture] Isso pode indicar um problema com as coordenadas.`
+          `[MAIN] [X11Capture] This may indicate a problem with coordinates.`
         );
       }
 
       offset = `${adjustedX},${adjustedY}`;
-      console.log(`[MAIN] [X11Capture] Gravação: ${size} em ${offset}`);
+      console.log(`[MAIN] [X11Capture] Recording: ${size} at ${offset}`);
       console.log(
-        `[MAIN] [X11Capture] Região Electron:`,
+        `[MAIN] [X11Capture] Electron region:`,
         JSON.stringify(this.region)
       );
       console.log(`[MAIN] [X11Capture] X11 bounds:`, JSON.stringify(x11Bounds));
@@ -174,7 +174,7 @@ class X11Capture extends BaseCapture {
         JSON.stringify(electronBounds)
       );
       console.log(
-        `[MAIN] [X11Capture] Coordenadas finais: x=${adjustedX}, y=${adjustedY}`
+        `[MAIN] [X11Capture] Final coordinates: x=${adjustedX}, y=${adjustedY}`
       );
     } else {
       size = `${resolution.width}x${resolution.height}`;

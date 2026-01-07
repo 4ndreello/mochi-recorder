@@ -18,7 +18,7 @@ class CaptureManager {
     } else if (this.environment === 'wayland') {
       this.captureInstance = new WaylandCapture();
     } else {
-      throw new Error('Ambiente não suportado. Necessário X11 ou Wayland.');
+      throw new Error('Environment not supported. X11 or Wayland required.');
     }
   }
 

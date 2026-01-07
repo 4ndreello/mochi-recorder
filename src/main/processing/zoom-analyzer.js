@@ -7,24 +7,24 @@ class ZoomAnalyzer {
   }
 
   analyze() {
-    // Analisar eventos de clique e criar regiões de zoom
+    // Analyze click events and create zoom regions
     const clicks = this.metadata.events.filter(e => e.type === 'click');
     
     this.zoomRegions = clicks.map((click, index) => {
-      const startTime = click.relativeTime / 1000; // Converter para segundos
-      const duration = 2; // 2 segundos de zoom por padrão
+      const startTime = click.relativeTime / 1000; // Convert to seconds
+      const duration = 2; // 2 seconds of zoom by default
       const endTime = startTime + duration;
       
-      // Calcular região de zoom (400x300px ao redor do clique)
+      // Calculate zoom region (400x300px around click)
       const zoomWidth = 400;
       const zoomHeight = 300;
       const zoomFactor = 2.0; // 200% de zoom
       
-      // Garantir que a região não saia dos limites da tela
+      // Ensure region doesn't go outside screen bounds
       let x = Math.max(0, Math.min(click.x - zoomWidth / 2, this.screenWidth - zoomWidth));
       let y = Math.max(0, Math.min(click.y - zoomHeight / 2, this.screenHeight - zoomHeight));
       
-      // Ajustar se necessário
+      // Adjust if necessary
       if (x + zoomWidth > this.screenWidth) {
         x = this.screenWidth - zoomWidth;
       }
@@ -53,29 +53,29 @@ class ZoomAnalyzer {
     return this.zoomRegions;
   }
 
-  // Gerar filtros FFmpeg para aplicar zoom
+  // Generate FFmpeg filters to apply zoom
   generateFFmpegFilters() {
     if (this.zoomRegions.length === 0) {
       return null;
     }
 
-    // Criar filtros complexos para aplicar zoom em diferentes momentos
+    // Create complex filters to apply zoom at different moments
     const filters = [];
     
-    // Para cada região de zoom, criar um filtro de crop e scale
+    // For each zoom region, create a crop and scale filter
     this.zoomRegions.forEach((region, index) => {
-      // Usar zoompan para transição suave
+      // Use zoompan for smooth transition
       const zoomFilter = `zoompan=z='if(between(t,${region.startTime},${region.endTime}),2,1)':d=1:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=${region.width}x${region.height}`;
       filters.push(zoomFilter);
     });
 
-    // Simplificar: aplicar zoom global quando houver clique
-    // Versão mais simples para MVP
+    // Simplify: apply global zoom when there's a click
+    // Simpler version for MVP
     return this.generateSimpleZoomFilter();
   }
 
   generateSimpleZoomFilter() {
-    // Gerar filtro que aplica zoom nos momentos de clique
+    // Generate filter that applies zoom at click moments
     let filterComplex = '';
     
     this.zoomRegions.forEach((region, index) => {
@@ -83,11 +83,11 @@ class ZoomAnalyzer {
         filterComplex += ';';
       }
       
-      // Crop e scale para cada região
+      // Crop and scale for each region
       const cropFilter = `crop=${region.width}:${region.height}:${region.x}:${region.y}`;
       const scaleFilter = `scale=${this.screenWidth}:${this.screenHeight}`;
       
-      // Usar select e setpts para controlar timing
+      // Use select and setpts to control timing
       filterComplex += `[0:v]select='between(t,${region.startTime},${region.endTime})',${cropFilter},${scaleFilter}[v${index}]`;
     });
 

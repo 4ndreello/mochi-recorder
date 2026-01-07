@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -21,11 +21,11 @@
 
     .recording-box {
       position: absolute;
-      /* Borda FORA da área de gravação usando outline */
+      /* Border OUTSIDE recording area using outline */
       border: none;
       outline: 3px dashed #f44336;
-      outline-offset: 3px; /* Empurra a borda para fora */
-      background: transparent; /* Sem fundo para não aparecer na gravação */
+      outline-offset: 3px; /* Push border outward */
+      background: transparent; /* No background to avoid appearing in recording */
       pointer-events: none;
       animation: pulse-border 2s infinite;
     }
@@ -51,7 +51,7 @@
       padding: 8px 16px;
       border-radius: 8px;
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-      pointer-events: auto; /* Permitir cliques aqui */
+      pointer-events: auto; /* Allow clicks here */
       backdrop-filter: blur(10px);
     }
 
@@ -126,7 +126,7 @@
         <span>REC</span>
       </div>
       <div class="timer" id="timer">0:00</div>
-      <button class="stop-button" id="stopButton" title="Parar gravação">
+      <button class="stop-button" id="stopButton" title="Stop recording">
         <div class="stop-icon"></div>
       </button>
     </div>
@@ -157,7 +157,7 @@
         recordingBox.style.height = region.height + 'px';
         recordingBox.style.display = 'block';
 
-        // Iniciar timer
+        // Start timer
         startTime = Date.now();
         timerInterval = setInterval(updateTimer, 1000);
       }
@@ -170,7 +170,7 @@
       ipcRenderer.send('stop-recording-clicked');
     });
 
-    // Controlar quando a janela deve ignorar eventos do mouse
+    // Control when window should ignore mouse events
     const controlsBar = document.querySelector('.controls-bar');
     
     controlsBar.addEventListener('mouseenter', () => {

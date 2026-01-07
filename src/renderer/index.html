@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="en">
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -10,7 +10,7 @@
         <div class="container">
             <header>
                 <h1>🎬 Mochi</h1>
-                <p class="subtitle">Gravação de tela com zoom automático</p>
+                <p class="subtitle">Screen recording with automatic zoom</p>
             </header>
 
             <main>
@@ -23,7 +23,7 @@
                     <button
                         id="micToggle"
                         class="mic-toggle muted"
-                        title="Alternar microfone"
+                        title="Toggle microphone"
                     >
                         <svg
                             class="mic-icon mic-on"
@@ -62,34 +62,34 @@
                         </svg>
                     </button>
                     <span class="mic-label" id="micLabel"
-                        >Microfone desligado</span
+                        >Microphone off</span
                     >
                 </div>
 
                 <div class="controls">
                     <button id="startBtn" class="btn btn-primary">
-                        ▶ Iniciar Gravação
+                        ▶ Start Recording
                     </button>
                     <button id="stopBtn" class="btn btn-secondary" disabled>
-                        ⏹ Parar Gravação
+                        ⏹ Stop Recording
                     </button>
                 </div>
 
                 <div class="info" id="info">
-                    <p>Clique em "Iniciar Gravação" para começar.</p>
+                    <p>Click "Start Recording" to begin.</p>
                     <p class="hint">
-                        O zoom automático será aplicado nos cliques durante o
-                        processamento.
+                        Automatic zoom will be applied to clicks during
+                        processing.
                     </p>
                 </div>
 
                 <div class="processing" id="processing" style="display: none">
                     <div class="spinner"></div>
-                    <p>Processando vídeo com zoom automático...</p>
+                    <p>Processing video with automatic zoom...</p>
                 </div>
 
                 <div class="success" id="success" style="display: none">
-                    <p>✅ Vídeo processado com sucesso!</p>
+                    <p>✅ Video processed successfully!</p>
                     <p class="output-path" id="outputPath"></p>
                 </div>
             </main>

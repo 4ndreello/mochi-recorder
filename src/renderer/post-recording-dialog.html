@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gravação Concluída</title>
+  <title>Recording Complete</title>
   <style>
     * {
       margin: 0;
@@ -159,13 +159,13 @@
   <div>
     <div class="buttons" id="buttons">
       <button class="primary" id="btnUpload">Upload</button>
-      <button id="btnCopy">Copiar arquivo</button>
-      <button id="btnFolder">Abrir pasta</button>
+      <button id="btnCopy">Copy file</button>
+      <button id="btnFolder">Open folder</button>
     </div>
 
     <div class="result" id="result">
       <input type="text" id="resultUrl" readonly>
-      <div class="result-info" id="resultInfo">Link copiado!</div>
+      <div class="result-info" id="resultInfo">Link copied!</div>
     </div>
 
     <div class="error" id="error"></div>
@@ -195,15 +195,15 @@
     btnUpload.addEventListener('click', async () => {
       error.classList.remove('active');
       
-      // Mostrar estado de "Subindo..."
-      btnUpload.innerHTML = '<div class="btn-spinner"></div> Subindo...';
+      // Show "Uploading..." state
+      btnUpload.innerHTML = '<div class="btn-spinner"></div> Uploading...';
       btnUpload.classList.add('uploading');
       btnUpload.classList.remove('primary');
       btnUpload.disabled = true;
       btnCopy.disabled = true;
       btnFolder.disabled = true;
       
-      // Mostrar barra de progresso no topo
+      // Show progress bar at top
       topProgress.classList.add('visible');
       topProgressFill.style.width = '0%';
 
@@ -215,17 +215,17 @@
         result.classList.add('active');
         resultUrl.value = res.url;
         
-        // Atualizar botão para sucesso
-        btnUpload.innerHTML = 'Copiado!';
+        // Update button to success
+        btnUpload.innerHTML = 'Copied!';
         btnUpload.classList.remove('uploading');
         btnCopy.disabled = false;
         btnFolder.disabled = false;
         
         if (!res.permanent) {
-          resultInfo.textContent = `Link copiado (expira em ${res.expiresIn})`;
+          resultInfo.textContent = `Link copied (expires in ${res.expiresIn})`;
         }
       } catch (e) {
-        // Restaurar estado original em caso de erro
+        // Restore original state on error
         topProgress.classList.remove('visible');
         btnUpload.innerHTML = uploadBtnOriginalHtml;
         btnUpload.classList.remove('uploading');
