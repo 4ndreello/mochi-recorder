@@ -6,9 +6,19 @@
 <h2>Features</h2>
 <ul>
    <li>High quality screen recording</li>
-   <li>Automatic zoom on mouse clicks <em>(Work in Progress)</em></li>
+   <li>Microphone recording</li>
    <li>X11 and Wayland support</li>
-   <li>Smooth mouse movement <em>(Work in Progress)</em></li>
+</ul>
+<h2>Not Yet Implemented</h2>
+<ul>
+   <li>Automatic zoom on mouse clicks</li>
+   <li>Smooth mouse movement</li>
+</ul>
+<h2>Releases</h2>
+<p>Pre-built packages are available on the <a href="https://github.com/4ndreello/mochi-recorder/releases">Releases</a> page:</p>
+<ul>
+   <li>AppImage</li>
+   <li>.deb</li>
 </ul>
 <h2>Requirements</h2>
 <table>
