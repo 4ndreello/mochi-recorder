@@ -190,21 +190,6 @@
         display: block;
       }
 
-      .progress-spinner {
-        display: none;
-        width: 20px;
-        height: 20px;
-        border: 2px solid rgba(102, 126, 234, 0.3);
-        border-top-color: #667eea;
-        border-radius: 50%;
-        animation: spin 0.7s linear infinite;
-        margin: 0 auto 12px;
-      }
-
-      .progress-container.active .progress-spinner {
-        display: block;
-      }
-
       .btn-spinner {
         width: 14px;
         height: 14px;
@@ -244,7 +229,6 @@
       </div>
 
       <div class="progress-container" id="progressContainer">
-        <div class="progress-spinner"></div>
         <div class="progress-bar">
           <div class="progress-fill" id="progressFill"></div>
         </div>
@@ -287,7 +271,8 @@
           progressContainer.classList.add("active");
           btnUpdate.disabled = true;
           btnLater.disabled = true;
-          btnUpdate.innerHTML = '<div class="btn-spinner"></div> Downloading...';
+          btnUpdate.innerHTML =
+            '<div class="btn-spinner"></div> Downloading...';
         }
 
         progressFill.style.width = percent + "%";
@@ -309,7 +294,7 @@
           const originalText = btnUpdate.innerHTML;
           btnUpdate.disabled = true;
           btnUpdate.innerHTML = '<div class="btn-spinner"></div> Restarting...';
-          
+
           try {
             await ipcRenderer.invoke("update-install");
           } catch (error) {
@@ -323,7 +308,7 @@
           const originalText = btnUpdate.innerHTML;
           btnUpdate.disabled = true;
           btnUpdate.innerHTML = '<div class="btn-spinner"></div> Starting...';
-          
+
           try {
             await ipcRenderer.invoke("update-download");
           } catch (error) {
