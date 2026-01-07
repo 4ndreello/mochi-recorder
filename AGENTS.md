@@ -55,5 +55,5 @@ Mochi is an Electron-based screen recording tool for Linux, inspired by Screen S
 ## 📋 Best Practices for Agents
 1. **FFmpeg Handling**: Always ensure `ffmpeg` processes are killed/cleaned up if the app crashes or stops.
 2. **Wayland Support**: Be mindful that Wayland capture (via PipeWire/Portal) behaves differently than X11.
-3. **Paths**: Use `app.getPath('temp')` for raw recordings and `app.getPath('downloads')` for final output.
+3. **Paths**: Use `app.getPath('temp')` for raw recordings and `/tmp` for final output.
 4. **Modularity**: Keep processing logic (zoom, mouse tracking) decoupled from UI logic.

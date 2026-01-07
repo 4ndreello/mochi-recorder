@@ -273,7 +273,7 @@ async function stopRecording() {
     }
 
     const outputPath = path.join(
-      app.getPath("downloads"),
+      "/tmp",
       `mochi_${Date.now()}.mp4`
     );
     console.log("[MAIN] Processing video to:", outputPath);
