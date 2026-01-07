@@ -107,9 +107,10 @@ class UpdateManager {
       height: 280,
       resizable: false,
       frame: false,
+      transparent: true,
       alwaysOnTop: true,
       skipTaskbar: false,
-      backgroundColor: "#1a1a1a",
+      backgroundColor: "#00000000",
       webPreferences: {
         nodeIntegration: true,
         contextIsolation: false,
