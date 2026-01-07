@@ -11,7 +11,7 @@ class EventRecorder {
   record(event, relativeTime) {
     this.events.push({
       ...event,
-      relativeTime, // Tempo relativo ao início da gravação em ms
+      relativeTime, // Time relative to recording start in ms
       absoluteTime: event.timestamp
     });
   }
@@ -32,10 +32,10 @@ class EventRecorder {
         JSON.stringify(metadata, null, 2),
         'utf-8'
       );
-      console.log(`Metadata salva em: ${this.metadataPath}`);
+      console.log(`Metadata saved to: ${this.metadataPath}`);
       return metadata;
     } catch (error) {
-      console.error('Erro ao salvar metadata:', error);
+      console.error('Error saving metadata:', error);
       throw error;
     }
   }

@@ -28,23 +28,23 @@ class BaseCapture {
   }
 
   /**
-   * Método abstrato para obter a fonte de vídeo específica do ambiente
-   * Deve ser implementado pelas classes filhas
+   * Abstract method to get the video source specific to the environment
+   * Must be implemented by child classes
    */
   async getVideoSource() {
-    throw new Error("getVideoSource() deve ser implementado pela classe filha");
+    throw new Error("getVideoSource() must be implemented by child class");
   }
 
   /**
-   * Método abstrato para construir os argumentos de vídeo do FFmpeg
-   * Deve ser implementado pelas classes filhas
+   * Abstract method to build FFmpeg video arguments
+   * Must be implemented by child classes
    */
   async buildVideoArgs() {
-    throw new Error("buildVideoArgs() deve ser implementado pela classe filha");
+    throw new Error("buildVideoArgs() must be implemented by child class");
   }
 
   /**
-   * Constrói os argumentos de áudio comuns para ambas as implementações
+   * Builds common audio arguments for both implementations
    */
   buildAudioArgs() {
     const audioMonitor = getSystemAudioMonitor();
@@ -53,15 +53,15 @@ class BaseCapture {
     const audioArgs = [];
     const audioInputs = [];
 
-    // Áudio do sistema (monitor)
+    // System audio (monitor)
     audioInputs.push({ format: "pulse", source: audioMonitor });
 
-    // Microfone (se habilitado)
+    // Microphone (if enabled)
     if (microphone) {
       audioInputs.push({ format: "pulse", source: microphone });
     }
 
-    // Construir argumentos de entrada de áudio
+    // Build audio input arguments
     audioInputs.forEach((input) => {
       audioArgs.push("-f", input.format, "-i", input.source);
     });
@@ -75,19 +75,19 @@ class BaseCapture {
   }
 
   /**
-   * Constrói os argumentos de filtro de áudio
+   * Builds audio filter arguments
    */
   buildAudioFilter(audioInputCount) {
     if (audioInputCount === 2) {
-      // Misturar áudio do sistema e microfone
-      // duration=longest garante que o áudio não seja cortado
+      // Mix system audio and microphone
+      // duration=longest ensures audio is not cut
       return "[0:a][1:a]amix=inputs=2:duration=longest:dropout_transition=2[aout]";
     }
     return null;
   }
 
   /**
-   * Constrói os argumentos de codificação comuns
+   * Builds common encoding arguments
    */
   buildEncodingArgs() {
     return [
@@ -103,21 +103,21 @@ class BaseCapture {
       "aac",
       "-b:a",
       "128k",
-      // Não usar -shortest aqui, pois pode cortar o áudio
-      // O stopRecording() com SIGINT garante finalização correta
+      // Don't use -shortest here, as it may cut audio
+      // stopRecording() with SIGINT ensures correct finalization
     ];
   }
 
   /**
-   * Inicia a gravação - método comum que coordena a construção dos argumentos
+   * Starts recording - common method that coordinates argument building
    */
   async startRecording(outputPath) {
     const { audioArgs, audioInputs } = this.buildAudioArgs();
     const videoArgs = await this.buildVideoArgs();
 
-    // Calcular índices de entrada
-    // Áudio: 0, 1 (se houver microfone)
-    // Vídeo: último índice (2 se houver microfone, 1 se não)
+    // Calculate input indices
+    // Audio: 0, 1 (if microphone exists)
+    // Video: last index (2 if microphone exists, 1 if not)
     const videoInputIndex = audioInputs.length;
     const hasMicrophone = audioInputs.length === 2;
 
@@ -127,19 +127,19 @@ class BaseCapture {
     let filterComplex = null;
     const videoFilters = [];
 
-    // Filtro de vídeo (crop se houver região)
+    // Video filter (crop if region exists)
     if (this.region && this.region.width > 0 && this.region.height > 0) {
       videoFilters.push(
         `[${videoInputIndex}:v]crop=${this.region.width}:${this.region.height}:${this.region.x}:${this.region.y}[vout]`
       );
     }
 
-    // Filtro de áudio (mix se houver microfone)
+    // Audio filter (mix if microphone exists)
     if (hasMicrophone) {
       const audioFilter = this.buildAudioFilter(2);
       if (audioFilter) {
         if (videoFilters.length > 0) {
-          // Se houver crop de vídeo, combinar filtros
+          // If video crop exists, combine filters
           filterComplex = `${videoFilters[0]};${audioFilter}`;
           args.push(
             "-filter_complex",
@@ -162,7 +162,7 @@ class BaseCapture {
         }
       }
     } else {
-      // Sem microfone, apenas mapear vídeo e áudio do sistema
+      // Without microphone, just map video and system audio
       if (videoFilters.length > 0) {
         filterComplex = videoFilters[0];
         args.push(
@@ -178,33 +178,33 @@ class BaseCapture {
       }
     }
 
-    // Adicionar argumentos de codificação
+    // Add encoding arguments
     args.push(...this.buildEncodingArgs());
 
-    // Adicionar arquivo de saída
+    // Add output file
     args.push("-y", outputPath);
 
     this.ffmpegProcess = require("child_process").spawn("ffmpeg", args);
 
-    // Configurar handlers de erro
+    // Configure error handlers
     this.setupFFmpegErrorHandling();
 
-    // Aguardar inicialização
+    // Wait for initialization
     return this.waitForFFmpegStart();
   }
 
   /**
-   * Configura o tratamento de erros do FFmpeg
+   * Configures FFmpeg error handling
    */
   setupFFmpegErrorHandling() {
     this.ffmpegProcess.on("error", (error) => {
-      console.error("[MAIN] Erro ao iniciar FFmpeg:", error);
+      console.error("[MAIN] Error starting FFmpeg:", error);
       throw error;
     });
   }
 
   /**
-   * Aguarda o FFmpeg iniciar corretamente
+   * Waits for FFmpeg to start correctly
    */
   waitForFFmpegStart() {
     return new Promise((resolve, reject) => {
@@ -215,12 +215,12 @@ class BaseCapture {
         const output = data.toString();
         errorOutput += output;
 
-        // Log de erros
+        // Log errors
         if (output.includes("error") || output.includes("Error")) {
           console.error("[MAIN] FFmpeg error:", output);
         }
 
-        // Detectar erros críticos
+        // Detect critical errors
         if (
           output.includes("error") ||
           output.includes("Error") ||
@@ -234,20 +234,20 @@ class BaseCapture {
         if (hasError) {
           reject(
             new Error(
-              `FFmpeg falhou ao iniciar: ${errorOutput.substring(0, 200)}`
+              `FFmpeg failed to start: ${errorOutput.substring(0, 200)}`
             )
           );
         } else if (this.ffmpegProcess && !this.ffmpegProcess.killed) {
           resolve();
         } else {
-          reject(new Error("FFmpeg não iniciou corretamente"));
+          reject(new Error("FFmpeg did not start correctly"));
         }
       }, 1500);
     });
   }
 
   /**
-   * Para a gravação de forma graciosa, garantindo que o áudio não seja cortado
+   * Stops recording gracefully, ensuring audio is not cut
    */
   async stopRecording() {
     return new Promise((resolve) => {
@@ -256,8 +256,8 @@ class BaseCapture {
         return;
       }
 
-      // Usar SIGINT em vez de escrever 'q' no stdin - mais confiável
-      // SIGINT permite que o FFmpeg finalize o arquivo corretamente
+      // Use SIGINT instead of writing 'q' to stdin - more reliable
+      // SIGINT allows FFmpeg to finalize the file correctly
       this.ffmpegProcess.kill("SIGINT");
 
       let resolved = false;
@@ -265,7 +265,7 @@ class BaseCapture {
       const onClose = (code) => {
         if (!resolved) {
           resolved = true;
-          console.log(`[MAIN] FFmpeg finalizado com código ${code}`);
+          console.log(`[MAIN] FFmpeg finished with code ${code}`);
           this.ffmpegProcess = null;
           resolve();
         }
@@ -273,16 +273,16 @@ class BaseCapture {
 
       this.ffmpegProcess.on("close", onClose);
 
-      // Timeout de segurança - dar mais tempo para o FFmpeg finalizar
-      // Isso é importante para garantir que o áudio seja completamente escrito
+      // Safety timeout - give more time for FFmpeg to finish
+      // This is important to ensure audio is completely written
       setTimeout(() => {
         if (this.ffmpegProcess && !resolved) {
           console.warn(
-            "[MAIN] FFmpeg não finalizou a tempo, forçando encerramento"
+            "[MAIN] FFmpeg did not finish in time, forcing termination"
           );
           this.ffmpegProcess.kill("SIGTERM");
 
-          // Aguardar um pouco mais antes de matar completamente
+          // Wait a bit more before killing completely
           setTimeout(() => {
             if (this.ffmpegProcess) {
               this.ffmpegProcess.kill("SIGKILL");
@@ -294,7 +294,7 @@ class BaseCapture {
             }
           }, 2000);
         }
-      }, 10000); // 10 segundos para finalizar - suficiente para garantir que o áudio seja escrito
+      }, 10000); // 10 seconds to finish - enough to ensure audio is written
     });
   }
 }

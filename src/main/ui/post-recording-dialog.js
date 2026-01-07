@@ -12,7 +12,7 @@ class PostRecordingDialog {
 
   setupIpcHandlers() {
     ipcMain.handle('copy-file-to-clipboard', async (event, filePath) => {
-      console.log('[COPY] Copiando arquivo:', filePath);
+      console.log('[COPY] Copying file:', filePath);
       
       const isWayland = process.env.WAYLAND_DISPLAY || 
                        process.env.XDG_SESSION_TYPE === 'wayland';
@@ -25,15 +25,15 @@ class PostRecordingDialog {
         exec(`echo -n "file://${filePath}" | xclip -selection clipboard -t text/uri-list`);
       }
       
-      console.log('[COPY] URI copiado!');
+      console.log('[COPY] URI copied!');
       return { success: true };
     });
 
     ipcMain.handle('upload-to-catbox', async (event, filePath) => {
-      console.log('[UPLOAD] Iniciando upload:', filePath);
+      console.log('[UPLOAD] Starting upload:', filePath);
       try {
         const stats = await fs.promises.stat(filePath);
-        console.log('[UPLOAD] Tamanho:', (stats.size / 1024 / 1024).toFixed(2), 'MB');
+        console.log('[UPLOAD] Size:', (stats.size / 1024 / 1024).toFixed(2), 'MB');
         
         const senderWebContents = event.sender;
         
@@ -43,13 +43,13 @@ class PostRecordingDialog {
           }
         });
         
-        console.log('[UPLOAD] Concluído:', result.url);
+        console.log('[UPLOAD] Completed:', result.url);
         return result;
       } catch (error) {
-        console.error('[UPLOAD] Erro:', error.message);
+        console.error('[UPLOAD] Error:', error.message);
         const message = error.code === 'ECONNRESET' 
-          ? 'Conexão perdida. Tente novamente.'
-          : error.message || 'Erro desconhecido';
+          ? 'Connection lost. Please try again.'
+          : error.message || 'Unknown error';
         throw new Error(message);
       }
     });

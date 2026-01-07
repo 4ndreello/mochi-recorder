@@ -2,7 +2,7 @@ const { execSync } = require('child_process');
 
 async function detectEnvironment() {
   try {
-    // Verificar variável de ambiente XDG_SESSION_TYPE
+    // Check XDG_SESSION_TYPE environment variable
     const sessionType = process.env.XDG_SESSION_TYPE;
     
     if (sessionType === 'wayland') {
@@ -11,7 +11,7 @@ async function detectEnvironment() {
       return 'x11';
     }
 
-    // Fallback: tentar detectar via loginctl
+    // Fallback: try to detect via loginctl
     try {
       const output = execSync('loginctl show-session $(loginctl | grep $(whoami) | awk \'{print $1}\') -p Type', { 
         encoding: 'utf-8',
@@ -24,13 +24,13 @@ async function detectEnvironment() {
         return 'x11';
       }
     } catch (e) {
-      // Ignorar erro
+      // Ignore error
     }
 
-    // Fallback final: assumir X11 (mais comum)
+    // Final fallback: assume X11 (most common)
     return 'x11';
   } catch (error) {
-    console.warn('Erro ao detectar ambiente, assumindo X11:', error);
+    console.warn('Error detecting environment, assuming X11:', error);
     return 'x11';
   }
 }
@@ -46,7 +46,7 @@ function getSystemAudioMonitor() {
       return `${defaultSink}.monitor`;
     }
   } catch (e) {
-    // pactl get-default-sink não disponível em versões antigas
+    // pactl get-default-sink not available in older versions
   }
 
   try {
@@ -74,29 +74,29 @@ function getSystemAudioMonitor() {
       }
     }
   } catch (e) {
-    console.warn('Erro ao detectar monitor de áudio:', e);
+    console.warn('Error detecting audio monitor:', e);
   }
   
   return 'default';
 }
 
 function getSystemMicrophone() {
-  // Tentar obter o microfone padrão via pactl
+  // Try to get default microphone via pactl
   try {
     const defaultSource = execSync('pactl get-default-source', {
       encoding: 'utf-8',
       stdio: ['ignore', 'pipe', 'ignore']
     }).trim();
     
-    // Verificar se não é um monitor (queremos entrada real, não loopback)
+    // Check if it's not a monitor (we want real input, not loopback)
     if (defaultSource && !defaultSource.includes('.monitor')) {
       return defaultSource;
     }
   } catch (e) {
-    // pactl get-default-source não disponível em versões antigas
+    // pactl get-default-source not available in older versions
   }
 
-  // Fallback: listar sources e encontrar um que não seja monitor
+  // Fallback: list sources and find one that's not a monitor
   try {
     const output = execSync('pactl list sources short', {
       encoding: 'utf-8',
@@ -105,7 +105,7 @@ function getSystemMicrophone() {
     
     const lines = output.trim().split('\n');
     
-    // Primeiro, procurar por fontes ativas que não são monitors
+    // First, look for active sources that are not monitors
     for (const line of lines) {
       if (!line.includes('.monitor') && !line.includes('SUSPENDED')) {
         const parts = line.split('\t');
@@ -115,7 +115,7 @@ function getSystemMicrophone() {
       }
     }
     
-    // Fallback: qualquer fonte que não seja monitor
+    // Fallback: any source that's not a monitor
     for (const line of lines) {
       if (!line.includes('.monitor')) {
         const parts = line.split('\t');
@@ -125,10 +125,10 @@ function getSystemMicrophone() {
       }
     }
   } catch (e) {
-    console.warn('Erro ao detectar microfone:', e);
+    console.warn('Error detecting microphone:', e);
   }
   
-  return null; // Retornar null se não encontrar microfone
+  return null; // Return null if microphone not found
 }
 
 module.exports = { detectEnvironment, getSystemAudioMonitor, getSystemMicrophone };

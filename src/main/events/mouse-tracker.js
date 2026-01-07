@@ -25,7 +25,7 @@ class MouseTracker extends EventEmitter {
     } else if (this.environment === 'wayland') {
       await this.startWayland(callback);
     } else {
-      console.warn('Ambiente desconhecido, tentando X11...');
+      console.warn('Unknown environment, trying X11...');
       await this.startX11(callback);
     }
   }
@@ -37,7 +37,7 @@ class MouseTracker extends EventEmitter {
       
       x11.createClient((err, display) => {
         if (err) {
-          console.warn('Não foi possível conectar ao X11, usando método alternativo:', err);
+          console.warn('Could not connect to X11, using alternative method:', err);
           this.startPolling(callback);
           return;
         }
@@ -46,47 +46,47 @@ class MouseTracker extends EventEmitter {
         this.setupX11Tracking(callback);
       });
     } catch (error) {
-      console.warn('Erro ao inicializar X11, usando polling:', error);
+      console.warn('Error initializing X11, using polling:', error);
       this.startPolling(callback);
     }
   }
 
   async startWayland(callback) {
-    // Wayland não permite captura direta de eventos de mouse por segurança
-    // Vamos usar métodos alternativos como libinput ou evtest
-    console.log('Wayland detectado, usando método alternativo de rastreamento');
+    // Wayland doesn't allow direct mouse event capture for security
+    // We'll use alternative methods like libinput or evtest
+    console.log('Wayland detected, using alternative tracking method');
     
     try {
-      // Tentar usar evtest (requer permissões)
+      // Try to use evtest (requires permissions)
       this.setupWaylandTracking(callback);
     } catch (error) {
-      console.warn('Erro ao configurar rastreamento Wayland, usando fallback:', error);
+      console.warn('Error setting up Wayland tracking, using fallback:', error);
       this.startPolling(callback);
     }
   }
 
   setupWaylandTracking(callback) {
-    // Para Wayland, podemos tentar usar evtest ou libinput
-    // Por enquanto, usar polling como fallback
-    // Em produção, seria necessário um módulo nativo ou usar portal de permissões
+    // For Wayland, we can try to use evtest or libinput
+    // For now, use polling as fallback
+    // In production, a native module or permission portal would be needed
     this.startPolling(callback);
   }
 
   setupX11Tracking(callback) {
-    // Evitar bad access: usar método mais seguro
-    // Em vez de modificar root window, usar polling ou xinput
-    console.log('X11 conectado, usando método seguro de rastreamento');
+    // Avoid bad access: use safer method
+    // Instead of modifying root window, use polling or xinput
+    console.log('X11 connected, using safe tracking method');
     
-    // Usar método alternativo mais seguro para evitar bad access
+    // Use safer alternative method to avoid bad access
     this.setupAlternativeClickMonitoring(callback);
   }
 
   startPolling(callback) {
-    // Fallback: usar polling com xdotool ou método alternativo
-    // Para MVP, vamos usar um método mais simples
+    // Fallback: use polling with xdotool or alternative method
+    // For MVP, we'll use a simpler method
     const { spawn } = require('child_process');
     
-    // Usar xdotool para monitorar mouse (se disponível)
+    // Use xdotool to monitor mouse (if available)
     const xdotool = spawn('xdotool', ['mousemove', '--', 'getmouselocation', '--shell'], {
       stdio: ['ignore', 'pipe', 'ignore']
     });
@@ -95,18 +95,18 @@ class MouseTracker extends EventEmitter {
     let lastY = null;
     let lastClickTime = 0;
 
-    // Polling alternativo usando xev ou método nativo
-    // Por enquanto, vamos usar um intervalo simples
+    // Alternative polling using xev or native method
+    // For now, we'll use a simple interval
     this.pollInterval = setInterval(() => {
       if (!this.isTracking) return;
 
-      // Para MVP, vamos focar apenas em cliques
-      // O rastreamento completo de mouse será melhorado depois
+      // For MVP, we'll focus only on clicks
+      // Full mouse tracking will be improved later
     }, 100);
 
     this.isTracking = true;
 
-    // Monitorar cliques via xinput ou método alternativo
+    // Monitor clicks via xinput or alternative method
     this.setupClickMonitoring(callback);
   }
 
@@ -124,12 +124,12 @@ class MouseTracker extends EventEmitter {
         if (!this.isTracking) return;
         
         const output = data.toString();
-        // Parse xinput output (formato específico)
-        // Por enquanto, vamos usar método mais simples
+        // Parse xinput output (specific format)
+        // For now, we'll use simpler method
       });
 
       xinput.on('error', () => {
-        // xinput não disponível, usar método alternativo
+        // xinput not available, use alternative method
         this.setupAlternativeClickMonitoring(callback);
       });
     } catch (error) {
@@ -138,16 +138,16 @@ class MouseTracker extends EventEmitter {
   }
 
   setupAlternativeClickMonitoring(callback) {
-    // Método alternativo usando xinput ou evtest
-    // Tentar usar evtest para monitorar eventos de mouse
+    // Alternative method using xinput or evtest
+    // Try to use evtest to monitor mouse events
     const { spawn } = require('child_process');
     
     try {
-      // Tentar encontrar dispositivo de mouse
+      // Try to find mouse device
       const devices = execSync('xinput list --id-only', { encoding: 'utf-8' });
       const deviceIds = devices.trim().split('\n').filter(id => id);
       
-      // Usar o primeiro dispositivo (geralmente o mouse)
+      // Use first device (usually the mouse)
       if (deviceIds.length > 0) {
         const deviceId = deviceIds[0];
         const xinput = spawn('xinput', ['test', deviceId], {
@@ -168,7 +168,7 @@ class MouseTracker extends EventEmitter {
               const isPress = line.includes('press');
               const match = line.match(/button (\d+)/);
               if (match) {
-                // Obter posição atual do mouse
+                // Get current mouse position
                 try {
                   const pos = execSync('xdotool getmouselocation --shell', { encoding: 'utf-8' });
                   const xMatch = pos.match(/X=(\d+)/);
@@ -193,7 +193,7 @@ class MouseTracker extends EventEmitter {
         });
 
         xinput.on('error', () => {
-          // Fallback final: usar método de polling básico
+          // Final fallback: use basic polling method
           this.setupBasicPolling(callback);
         });
       } else {
@@ -205,9 +205,9 @@ class MouseTracker extends EventEmitter {
   }
 
   setupBasicPolling(callback) {
-    // Método mais básico: polling periódico da posição do mouse
-    // Este método não captura cliques perfeitamente, mas é um fallback
-    console.log('Usando método básico de rastreamento (limitado)');
+    // Most basic method: periodic polling of mouse position
+    // This method doesn't capture clicks perfectly, but it's a fallback
+    console.log('Using basic tracking method (limited)');
     
     let lastX = null;
     let lastY = null;
@@ -238,7 +238,7 @@ class MouseTracker extends EventEmitter {
       } catch (e) {
         // Ignorar erro
       }
-    }, 50); // Poll a cada 50ms
+    }, 50); // Poll every 50ms
   }
 
   stop() {
@@ -253,7 +253,7 @@ class MouseTracker extends EventEmitter {
       try {
         this.x11Client.close();
       } catch (error) {
-        // Ignorar erro ao fechar
+        // Ignore error on close
       }
       this.x11Client = null;
     }

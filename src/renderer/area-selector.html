@@ -1,193 +1,196 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Selecionar Área</title>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    body {
-      margin: 0;
-      padding: 0;
-      background: rgba(0, 0, 0, 0.3);
-      overflow: hidden;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      cursor: crosshair;
-      transition: background 0.2s ease;
-    }
-
-    body.dimmed {
-      background: rgba(0, 0, 0, 0.7);
-      cursor: not-allowed;
-      pointer-events: none;
-    }
-
-    .selection-box {
-      position: absolute;
-      border: 2px solid #667eea;
-      background: rgba(102, 126, 234, 0.1);
-      pointer-events: none;
-      box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.3);
-    }
-
-    .selection-info {
-      position: absolute;
-      background: rgba(0, 0, 0, 0.8);
-      color: white;
-      padding: 8px 12px;
-      border-radius: 4px;
-      font-size: 12px;
-      pointer-events: none;
-      top: -35px;
-      left: 0;
-      white-space: nowrap;
-    }
-
-    .hint {
-      position: absolute;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0, 0, 0, 0.8);
-      color: white;
-      padding: 12px 24px;
-      border-radius: 8px;
-      font-size: 14px;
-      pointer-events: none;
-      transition: opacity 0.2s ease;
-    }
-
-    body.dimmed .hint {
-      opacity: 0;
-    }
-
-    .hint kbd {
-      background: rgba(255, 255, 255, 0.2);
-      padding: 2px 6px;
-      border-radius: 3px;
-      font-family: monospace;
-    }
-  </style>
-</head>
-<body>
-  <div class="selection-box" id="selectionBox" style="display: none;"></div>
-  <div class="hint">
-    Arraste para selecionar área • <kbd>ESC</kbd> para cancelar • <kbd>Enter</kbd> para confirmar
-  </div>
-
-  <script>
-    const { ipcRenderer } = require('electron');
-
-    let isSelecting = false;
-    let hasStartedSelecting = false;
-    let startX = 0;
-    let startY = 0;
-    let selectionBox = document.getElementById('selectionBox');
-    let infoDiv = null;
-    let displayInfo = null;
-
-    ipcRenderer.on('display-info', (event, info) => {
-      displayInfo = info;
-    });
-
-    ipcRenderer.on('dim-overlay', () => {
-      document.body.classList.add('dimmed');
-    });
-
-    function updateSelection(x, y, width, height) {
-      selectionBox.style.left = x + 'px';
-      selectionBox.style.top = y + 'px';
-      selectionBox.style.width = width + 'px';
-      selectionBox.style.height = height + 'px';
-      selectionBox.style.display = 'block';
-
-      if (!infoDiv) {
-        infoDiv = document.createElement('div');
-        infoDiv.className = 'selection-info';
-        selectionBox.appendChild(infoDiv);
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Select Area</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
       }
-      infoDiv.textContent = `${width} × ${height}px`;
-      infoDiv.style.left = '0px';
-      if (y < 35) {
-        infoDiv.style.top = 'auto';
-        infoDiv.style.bottom = '-35px';
-      } else {
-        infoDiv.style.top = '-35px';
-        infoDiv.style.bottom = 'auto';
+
+      body {
+        margin: 0;
+        padding: 0;
+        background: rgba(0, 0, 0, 0.3);
+        overflow: hidden;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+        cursor: crosshair;
+        transition: background 0.2s ease;
       }
-    }
 
-    function finishSelection() {
-      if (!isSelecting) return;
-
-      const rect = selectionBox.getBoundingClientRect();
-      
-      const selection = {
-        x: Math.round(rect.left),
-        y: Math.round(rect.top),
-        width: Math.round(rect.width),
-        height: Math.round(rect.height)
-      };
-
-      if (selection.width > 10 && selection.height > 10) {
-        ipcRenderer.send('area-selected', selection);
+      body.dimmed {
+        background: rgba(0, 0, 0, 0.7);
+        cursor: not-allowed;
+        pointer-events: none;
       }
-    }
 
-    function cancelSelection() {
-      isSelecting = false;
-      selectionBox.style.display = 'none';
-      ipcRenderer.send('selection-cancelled');
-    }
-
-    document.addEventListener('mousedown', (e) => {
-      if (document.body.classList.contains('dimmed')) return;
-      
-      isSelecting = true;
-      startX = e.clientX;
-      startY = e.clientY;
-      updateSelection(startX, startY, 0, 0);
-
-      if (!hasStartedSelecting) {
-        hasStartedSelecting = true;
-        ipcRenderer.send('selection-started', { displayIndex: displayInfo?.displayIndex });
+      .selection-box {
+        position: absolute;
+        border: 2px solid #667eea;
+        background: rgba(102, 126, 234, 0.1);
+        pointer-events: none;
+        box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.3);
       }
-    });
 
-    document.addEventListener('mousemove', (e) => {
-      if (!isSelecting) return;
-
-      const width = Math.abs(e.clientX - startX);
-      const height = Math.abs(e.clientY - startY);
-      const x = Math.min(startX, e.clientX);
-      const y = Math.min(startY, e.clientY);
-
-      updateSelection(x, y, width, height);
-    });
-
-    document.addEventListener('mouseup', () => {
-      if (isSelecting) {
-        finishSelection();
+      .selection-info {
+        position: absolute;
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 8px 12px;
+        border-radius: 4px;
+        font-size: 12px;
+        pointer-events: none;
+        top: -35px;
+        left: 0;
+        white-space: nowrap;
       }
-    });
 
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        cancelSelection();
-      } else if (e.key === 'Enter' && isSelecting) {
-        finishSelection();
+      .hint {
+        position: absolute;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-size: 14px;
+        pointer-events: none;
+        transition: opacity 0.2s ease;
       }
-    });
 
-    document.addEventListener('contextmenu', (e) => {
-      e.preventDefault();
-    });
-  </script>
-</body>
+      body.dimmed .hint {
+        opacity: 0;
+      }
+
+      .hint kbd {
+        background: rgba(255, 255, 255, 0.2);
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-family: monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="selection-box" id="selectionBox" style="display: none"></div>
+    <div class="hint">
+      Drag to select area • <kbd>ESC</kbd> to cancel • <kbd>Enter</kbd> to
+      confirm
+    </div>
+
+    <script>
+      const { ipcRenderer } = require("electron");
+
+      let isSelecting = false;
+      let hasStartedSelecting = false;
+      let startX = 0;
+      let startY = 0;
+      let selectionBox = document.getElementById("selectionBox");
+      let infoDiv = null;
+      let displayInfo = null;
+
+      ipcRenderer.on("display-info", (event, info) => {
+        displayInfo = info;
+      });
+
+      ipcRenderer.on("dim-overlay", () => {
+        document.body.classList.add("dimmed");
+      });
+
+      function updateSelection(x, y, width, height) {
+        selectionBox.style.left = x + "px";
+        selectionBox.style.top = y + "px";
+        selectionBox.style.width = width + "px";
+        selectionBox.style.height = height + "px";
+        selectionBox.style.display = "block";
+
+        if (!infoDiv) {
+          infoDiv = document.createElement("div");
+          infoDiv.className = "selection-info";
+          selectionBox.appendChild(infoDiv);
+        }
+        infoDiv.textContent = `${width} × ${height}px`;
+        infoDiv.style.left = "0px";
+        if (y < 35) {
+          infoDiv.style.top = "auto";
+          infoDiv.style.bottom = "-35px";
+        } else {
+          infoDiv.style.top = "-35px";
+          infoDiv.style.bottom = "auto";
+        }
+      }
+
+      function finishSelection() {
+        if (!isSelecting) return;
+
+        const rect = selectionBox.getBoundingClientRect();
+
+        const selection = {
+          x: Math.round(rect.left),
+          y: Math.round(rect.top),
+          width: Math.round(rect.width),
+          height: Math.round(rect.height),
+        };
+
+        if (selection.width > 10 && selection.height > 10) {
+          ipcRenderer.send("area-selected", selection);
+        }
+      }
+
+      function cancelSelection() {
+        isSelecting = false;
+        selectionBox.style.display = "none";
+        ipcRenderer.send("selection-cancelled");
+      }
+
+      document.addEventListener("mousedown", (e) => {
+        if (document.body.classList.contains("dimmed")) return;
+
+        isSelecting = true;
+        startX = e.clientX;
+        startY = e.clientY;
+        updateSelection(startX, startY, 0, 0);
+
+        if (!hasStartedSelecting) {
+          hasStartedSelecting = true;
+          ipcRenderer.send("selection-started", {
+            displayIndex: displayInfo?.displayIndex,
+          });
+        }
+      });
+
+      document.addEventListener("mousemove", (e) => {
+        if (!isSelecting) return;
+
+        const width = Math.abs(e.clientX - startX);
+        const height = Math.abs(e.clientY - startY);
+        const x = Math.min(startX, e.clientX);
+        const y = Math.min(startY, e.clientY);
+
+        updateSelection(x, y, width, height);
+      });
+
+      document.addEventListener("mouseup", () => {
+        if (isSelecting) {
+          finishSelection();
+        }
+      });
+
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          cancelSelection();
+        } else if (e.key === "Enter" && isSelecting) {
+          finishSelection();
+        }
+      });
+
+      document.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+      });
+    </script>
+  </body>
 </html>
-

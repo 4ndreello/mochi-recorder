@@ -9,9 +9,9 @@ class UpdateManager {
     this.checkInterval = null;
     this.updateInfo = null;
 
-    // Configurar autoUpdater
-    autoUpdater.autoDownload = false; // Não baixar automaticamente, esperar confirmação do usuário
-    autoUpdater.autoInstallOnAppQuit = false; // Não instalar automaticamente
+    // Configure autoUpdater
+    autoUpdater.autoDownload = false; // Don't download automatically, wait for user confirmation
+    autoUpdater.autoInstallOnAppQuit = false; // Don't install automatically
 
     this.setupEventHandlers();
     this.setupIpcHandlers();
@@ -19,27 +19,27 @@ class UpdateManager {
 
   setupEventHandlers() {
     autoUpdater.on("checking-for-update", () => {
-      console.log("[UPDATE] Verificando atualizações...");
+      console.log("[UPDATE] Checking for updates...");
     });
 
     autoUpdater.on("update-available", (info) => {
-      console.log("[UPDATE] Atualização disponível:", info.version);
+      console.log("[UPDATE] Update available:", info.version);
       this.updateInfo = info;
       this.showUpdateDialog(info);
     });
 
     autoUpdater.on("update-not-available", (info) => {
-      console.log("[UPDATE] Aplicativo está atualizado:", info.version);
+      console.log("[UPDATE] Application is up to date:", info.version);
     });
 
     autoUpdater.on("error", (err) => {
-      console.error("[UPDATE] Erro ao verificar atualizações:", err);
-      // Não mostrar erro ao usuário, apenas logar
+      console.error("[UPDATE] Error checking for updates:", err);
+      // Don't show error to user, just log
     });
 
     autoUpdater.on("download-progress", (progressObj) => {
       const percent = Math.round(progressObj.percent);
-      console.log("[UPDATE] Progresso do download:", percent + "%");
+      console.log("[UPDATE] Download progress:", percent + "%");
 
       if (this.updateWindow && !this.updateWindow.isDestroyed()) {
         this.updateWindow.webContents.send("download-progress", percent);
@@ -47,7 +47,7 @@ class UpdateManager {
     });
 
     autoUpdater.on("update-downloaded", (info) => {
-      console.log("[UPDATE] Download concluído:", info.version);
+      console.log("[UPDATE] Download completed:", info.version);
 
       if (this.updateWindow && !this.updateWindow.isDestroyed()) {
         this.updateWindow.webContents.send("download-complete");
@@ -58,18 +58,18 @@ class UpdateManager {
   setupIpcHandlers() {
     ipcMain.handle("update-install", async () => {
       try {
-        console.log("[UPDATE] Instalando atualização...");
-        // Para .deb, o electron-updater tentará instalar automaticamente
-        // Se precisar de permissões sudo, o sistema solicitará ao usuário
-        // O segundo parâmetro (true) força a instalação mesmo se o app não estiver empacotado
+        console.log("[UPDATE] Installing update...");
+        // For .deb, electron-updater will try to install automatically
+        // If sudo permissions are needed, the system will prompt the user
+        // The second parameter (true) forces installation even if app is not packaged
         autoUpdater.quitAndInstall(false, true);
       } catch (error) {
-        console.error("[UPDATE] Erro ao instalar:", error);
-        // Se falhar por falta de permissões, informar ao usuário
+        console.error("[UPDATE] Error installing:", error);
+        // If it fails due to lack of permissions, inform the user
         if (error.message && error.message.includes("permission")) {
           throw new Error(
-            "Permissões de administrador necessárias para instalar a atualização. " +
-              "Por favor, execute o aplicativo com permissões adequadas."
+            "Administrator permissions required to install the update. " +
+              "Please run the application with appropriate permissions."
           );
         }
         throw error;
@@ -78,16 +78,16 @@ class UpdateManager {
 
     ipcMain.handle("update-download", async () => {
       try {
-        console.log("[UPDATE] Iniciando download da atualização...");
+        console.log("[UPDATE] Starting update download...");
         await autoUpdater.downloadUpdate();
       } catch (error) {
-        console.error("[UPDATE] Erro ao baixar:", error);
+        console.error("[UPDATE] Error downloading:", error);
         throw error;
       }
     });
 
     ipcMain.handle("update-skip", () => {
-      console.log("[UPDATE] Usuário optou por pular atualização");
+      console.log("[UPDATE] User chose to skip update");
       this.closeUpdateDialog();
     });
 
@@ -124,7 +124,7 @@ class UpdateManager {
       this.updateWindow.webContents.send("update-info", {
         currentVersion: require("../../../package.json").version,
         newVersion: info.version,
-        releaseNotes: info.releaseNotes || "Melhorias e correções de bugs.",
+        releaseNotes: info.releaseNotes || "Improvements and bug fixes.",
       });
     });
 
@@ -145,16 +145,16 @@ class UpdateManager {
   async checkForUpdates() {
     if (this.isDevMode) {
       console.log(
-        "[UPDATE] Modo dev ativo, pulando verificação de atualizações"
+        "[UPDATE] Dev mode active, skipping update check"
       );
       return;
     }
 
     try {
-      console.log("[UPDATE] Verificando atualizações...");
+      console.log("[UPDATE] Checking for updates...");
       await autoUpdater.checkForUpdates();
     } catch (error) {
-      console.error("[UPDATE] Erro ao verificar atualizações:", error);
+      console.error("[UPDATE] Error checking for updates:", error);
     }
   }
 
@@ -163,17 +163,17 @@ class UpdateManager {
       return;
     }
 
-    // Verificar na inicialização
+    // Check on initialization
     this.checkForUpdates();
 
-    // Verificar periodicamente
+    // Check periodically
     const intervalMs = intervalMinutes * 60 * 1000;
     this.checkInterval = setInterval(() => {
       this.checkForUpdates();
     }, intervalMs);
 
     console.log(
-      `[UPDATE] Verificação periódica configurada para a cada ${intervalMinutes} minutos`
+      `[UPDATE] Periodic check configured for every ${intervalMinutes} minutes`
     );
   }
 

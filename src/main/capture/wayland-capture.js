@@ -8,19 +8,19 @@ class WaylandCapture extends BaseCapture {
 
   async getPipeWireSource() {
     try {
-      // Tentar encontrar fonte PipeWire
-      // No Wayland moderno, PipeWire é usado para captura de tela
+      // Try to find PipeWire source
+      // In modern Wayland, PipeWire is used for screen capture
       execSync('pw-cli list-objects | grep -i "screen" | head -1', {
         encoding: "utf-8",
         stdio: ["ignore", "pipe", "ignore"],
       });
 
-      // PipeWire geralmente usa formato pipewire://
-      // Para FFmpeg, usamos pipewire:0 como padrão
+      // PipeWire usually uses pipewire:// format
+      // For FFmpeg, we use pipewire:0 as default
       return "pipewire:0";
     } catch (error) {
       console.warn(
-        "[MAIN] Erro ao detectar fonte PipeWire, usando padrão:",
+        "[MAIN] Error detecting PipeWire source, using default:",
         error
       );
       return "pipewire:0";
@@ -35,7 +35,7 @@ class WaylandCapture extends BaseCapture {
   }
 
   /**
-   * Constrói os argumentos de vídeo específicos do Wayland
+   * Builds Wayland-specific video arguments
    */
   async buildVideoArgs() {
     const source = await this.getVideoSource();

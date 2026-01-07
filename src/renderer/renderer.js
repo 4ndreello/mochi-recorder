@@ -20,7 +20,7 @@ async function updateStatus() {
   
   if (isRecording) {
     statusDot.className = 'status-dot recording';
-    statusText.textContent = 'Gravando...';
+    statusText.textContent = 'Recording...';
     startBtn.disabled = true;
     stopBtn.disabled = false;
     info.style.display = 'block';
@@ -28,7 +28,7 @@ async function updateStatus() {
     success.style.display = 'none';
   } else {
     statusDot.className = 'status-dot';
-    statusText.textContent = 'Pronto';
+    statusText.textContent = 'Ready';
     startBtn.disabled = false;
     stopBtn.disabled = true;
   }
@@ -40,7 +40,7 @@ startBtn.addEventListener('click', async () => {
   if (result.success) {
     await updateStatus();
   } else {
-    alert(`Erro ao iniciar gravação: ${result.error}`);
+    alert(`Error starting recording: ${result.error}`);
   }
 });
 
@@ -50,19 +50,19 @@ stopBtn.addEventListener('click', async () => {
   if (result.success) {
     isRecording = false;
     statusDot.className = 'status-dot processing';
-    statusText.textContent = 'Processando...';
+    statusText.textContent = 'Processing...';
     startBtn.disabled = true;
     stopBtn.disabled = true;
     info.style.display = 'none';
     processing.style.display = 'block';
     success.style.display = 'none';
   } else {
-    alert(`Erro ao parar gravação: ${result.error}`);
+    alert(`Error stopping recording: ${result.error}`);
     await updateStatus();
   }
 });
 
-// Listeners para eventos do processo principal
+// Listeners for main process events
 ipcRenderer.on('processing-started', () => {
   statusDot.className = 'status-dot processing';
   statusText.textContent = 'Processando...';
@@ -76,12 +76,12 @@ ipcRenderer.on('processing-complete', (event, data) => {
   info.style.display = 'none';
   processing.style.display = 'none';
   success.style.display = 'block';
-  outputPath.textContent = `Salvo em: ${data.outputPath}`;
+  outputPath.textContent = `Saved to: ${data.outputPath}`;
   startBtn.disabled = false;
   stopBtn.disabled = true;
 });
 
-// Atualizar status inicial
+// Update initial status
 updateStatus();
 updateMicStatus();
 
@@ -95,11 +95,11 @@ function updateMicUI() {
   if (isMicEnabled) {
     micToggle.classList.remove('muted');
     micToggle.classList.add('unmuted');
-    micLabel.textContent = 'Microfone ligado';
+    micLabel.textContent = 'Microphone on';
   } else {
     micToggle.classList.remove('unmuted');
     micToggle.classList.add('muted');
-    micLabel.textContent = 'Microfone desligado';
+    micLabel.textContent = 'Microphone off';
   }
 }
 

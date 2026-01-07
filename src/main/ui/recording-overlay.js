@@ -15,8 +15,8 @@ class RecordingOverlay {
   }
 
   /**
-   * Calcula a posição ideal para a janela de controles
-   * Prioridade: Acima -> Abaixo -> Dentro da região
+   * Calculates the ideal position for the controls window
+   * Priority: Above -> Below -> Inside the region
    */
   calculateControlsPosition(region, width, height) {
     const display = screen.getDisplayMatching(region);
@@ -26,21 +26,21 @@ class RecordingOverlay {
     let y = region.y - height - this.controlsGap;
     let side = "top";
 
-    // Verifica se está saindo pelo topo
+    // Check if it's going out the top
     if (y < screenBounds.y) {
-      // Tenta posicionar abaixo da região
+      // Try to position below the region
       y = region.y + region.height + this.controlsGap;
       side = "bottom";
 
-      // Verifica se está saindo pela parte inferior
+      // Check if it's going out the bottom
       if (y + height > screenBounds.y + screenBounds.height) {
-        // Posiciona dentro da região (no rodapé interno)
+        // Position inside the region (at internal footer)
         y = region.y + region.height - height - this.controlsGap;
         side = "inside";
       }
     }
 
-    // Ajuste horizontal - não permitir que saia das bordas laterais
+    // Horizontal adjustment - don't allow it to go outside side edges
     const minX = screenBounds.x + 10;
     const maxX = screenBounds.x + screenBounds.width - width - 10;
     x = Math.max(minX, Math.min(x, maxX));
@@ -126,7 +126,7 @@ class RecordingOverlay {
       }, 50);
     });
 
-    // Calcula posição inteligente dos controles
+    // Calculate smart position for controls
     const controlsPos = this.calculateControlsPosition(
       region,
       this.controlsWidth,
@@ -166,7 +166,7 @@ class RecordingOverlay {
     this.controlsWindow.setAlwaysOnTop(true, "screen-saver");
 
     this.controlsWindow.webContents.on("did-finish-load", () => {
-      // Informa ao renderer qual lado está posicionado para ajustar layout interno
+      // Inform renderer which side is positioned to adjust internal layout
       this.controlsWindow.webContents.send("position-side", this.positionSide);
 
       if (this.onReadyCallback) {
@@ -201,14 +201,14 @@ class RecordingOverlay {
 
       let newY = bounds.y;
 
-      // Se está posicionado acima ou dentro, expande para cima
-      // Se está posicionado abaixo, expande para baixo
+      // If positioned above or inside, expand upward
+      // If positioned below, expand downward
       if (this.positionSide === "top" || this.positionSide === "inside") {
         newY = bounds.y - heightDiff;
       }
       // Se 'bottom', newY permanece o mesmo (expande para baixo)
 
-      // Recalcular X para manter centralizado baseado na região da gravação
+      // Recalculate X to keep centered based on recording region
       const display = screen.getDisplayMatching(this.region);
       const screenBounds = display.bounds;
 
@@ -217,7 +217,7 @@ class RecordingOverlay {
         Math.floor(this.region.width / 2) -
         Math.floor(this.expandedControlsWidth / 2);
 
-      // Ajuste horizontal - não permitir que saia das bordas laterais
+      // Horizontal adjustment - don't allow it to go outside side edges
       const minX = screenBounds.x + 10;
       const maxX =
         screenBounds.x + screenBounds.width - this.expandedControlsWidth - 10;
