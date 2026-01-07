@@ -1,5 +1,6 @@
 const { Tray, Menu, nativeImage, app } = require("electron");
 const path = require("path");
+const packageJson = require("../../../package.json");
 
 class TrayManager {
   constructor() {
@@ -47,7 +48,7 @@ class TrayManager {
       for (let x = 0; x < size; x++) {
         const idx = (y * size + x) * 4;
         const distance = Math.sqrt(
-          Math.pow(x - centerX, 2) + Math.pow(y - centerY, 2),
+          Math.pow(x - centerX, 2) + Math.pow(y - centerY, 2)
         );
 
         if (distance <= radius) {
@@ -94,11 +95,18 @@ class TrayManager {
   }
 
   updateMenu() {
+    const versionLabel = `Versão ${packageJson.version}`;
+
     const menuItems = this.isRecording
       ? [
           {
             label: "⏹ Parar Gravação",
             click: () => this.onStopRecording(),
+          },
+          { type: "separator" },
+          {
+            label: versionLabel,
+            enabled: false,
           },
           { type: "separator" },
           {
@@ -110,6 +118,11 @@ class TrayManager {
           {
             label: "Iniciar Gravação",
             click: () => this.onStartRecording(),
+          },
+          { type: "separator" },
+          {
+            label: versionLabel,
+            enabled: false,
           },
           { type: "separator" },
           {
@@ -133,7 +146,7 @@ class TrayManager {
     this.tray.setToolTip(
       isRecording
         ? "Mochi - Gravando... (clique para parar)"
-        : "Mochi - Clique para gravar",
+        : "Mochi - Clique para gravar"
     );
 
     // Atualizar menu
