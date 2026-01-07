@@ -132,6 +132,10 @@ async function showRecordingOverlay(region) {
 
   await new Promise((resolve) => {
     recordingOverlay.create(region, () => {
+      // Register callback to update selectedRegion when border is dragged
+      recordingOverlay.setRegionUpdateCallback((newRegion) => {
+        selectedRegion = newRegion;
+      });
       resolve();
     });
     recordingOverlay.show();

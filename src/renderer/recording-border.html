@@ -40,6 +40,12 @@
     .recording-box.ready {
       outline-color: #f1c40f;
       animation: none;
+      pointer-events: auto;
+      cursor: move;
+    }
+
+    .recording-box.ready.dragging {
+      cursor: grabbing;
     }
 
     .recording-box.recording {
@@ -69,8 +75,17 @@
     // Hide initially
     recordingBox.style.display = 'none';
 
+    let isDragging = false;
+    let dragStartX = 0;
+    let dragStartY = 0;
+    let initialLeft = 0;
+    let initialTop = 0;
+    let currentRegion = null;
+    let borderWindowBounds = null;
+
     ipcRenderer.on('set-region', (event, region) => {
       if (region && region.width > 0 && region.height > 0) {
+        currentRegion = region;
         recordingBox.style.left = region.x + 'px';
         recordingBox.style.top = region.y + 'px';
         recordingBox.style.width = region.width + 'px';
@@ -81,13 +96,95 @@
       }
     });
 
+    ipcRenderer.on('border-window-bounds', (event, bounds) => {
+      borderWindowBounds = bounds;
+    });
+
     ipcRenderer.on('set-recording-state', (event, state) => {
-      recordingBox.classList.remove('ready', 'recording');
+      recordingBox.classList.remove('ready', 'recording', 'dragging');
       if (state === 'ready') {
         recordingBox.classList.add('ready');
       } else if (state === 'recording') {
         recordingBox.classList.add('recording');
       }
+    });
+
+    // Drag functionality
+    recordingBox.addEventListener('mousedown', (e) => {
+      console.log("[RENDERER] mousedown event received on recordingBox", {
+        ready: recordingBox.classList.contains('ready'),
+        clientX: e.clientX,
+        clientY: e.clientY,
+        target: e.target
+      });
+      
+      if (!recordingBox.classList.contains('ready')) {
+        console.log("[RENDERER] Not in ready state, ignoring drag");
+        return; // Only allow dragging in ready state
+      }
+
+      console.log("[RENDERER] Starting drag");
+      isDragging = true;
+      recordingBox.classList.add('dragging');
+      
+      dragStartX = e.clientX;
+      dragStartY = e.clientY;
+      
+      const rect = recordingBox.getBoundingClientRect();
+      initialLeft = rect.left;
+      initialTop = rect.top;
+
+      // Notify main process that dragging started
+      ipcRenderer.send('start-dragging-border');
+
+      e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+
+      const deltaX = e.clientX - dragStartX;
+      const deltaY = e.clientY - dragStartY;
+
+      const newLeft = initialLeft + deltaX;
+      const newTop = initialTop + deltaY;
+
+      // Update visual position
+      recordingBox.style.left = newLeft + 'px';
+      recordingBox.style.top = newTop + 'px';
+
+      // Calculate new region (relative to border window)
+      if (currentRegion) {
+        const newRegion = {
+          x: newLeft,
+          y: newTop,
+          width: currentRegion.width,
+          height: currentRegion.height
+        };
+
+        // Notify main process of position update
+        ipcRenderer.send('update-border-position', newRegion);
+      }
+    });
+    
+    // Debug: Log all mouse events on the document
+    document.addEventListener('mousedown', (e) => {
+      console.log("[RENDERER] mousedown on document", {
+        target: e.target,
+        clientX: e.clientX,
+        clientY: e.clientY,
+        isRecordingBox: e.target === recordingBox || recordingBox.contains(e.target)
+      });
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (!isDragging) return;
+
+      isDragging = false;
+      recordingBox.classList.remove('dragging');
+
+      // Notify main process that dragging stopped
+      ipcRenderer.send('stop-dragging-border');
     });
   </script>
 </body>
