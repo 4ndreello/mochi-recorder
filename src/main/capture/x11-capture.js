@@ -187,7 +187,7 @@ class X11Capture extends BaseCapture {
       "-s",
       size,
       "-r",
-      "60",
+      "30",
       "-i",
       `${this.display}+${offset}`,
     ];
