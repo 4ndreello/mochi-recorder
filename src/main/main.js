@@ -27,6 +27,32 @@ let selectedRegion = null;
 let useMicrophone = false;
 let useSystemAudio = true;
 
+// Garantir que apenas uma instância do Mochi esteja rodando
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  console.log(
+    "[MAIN] Já existe uma instância do Mochi rodando. Fechando esta instância."
+  );
+  app.quit();
+} else {
+  // Quando uma segunda instância tentar abrir, focar na janela existente
+  app.on("second-instance", () => {
+    console.log(
+      "[MAIN] Segunda instância detectada. Focando na instância existente."
+    );
+
+    // Tentar focar em qualquer janela que possa estar aberta
+    const windows = BrowserWindow.getAllWindows();
+    windows.forEach((window) => {
+      if (window.isMinimized()) {
+        window.restore();
+      }
+      window.focus();
+    });
+  });
+}
+
 function createTray() {
   trayManager = new TrayManager();
   trayManager.create({
