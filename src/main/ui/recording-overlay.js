@@ -292,19 +292,19 @@ class RecordingOverlay {
     
     const borderWindow = this.borderWindow;
     
-    // SOLUÇÃO ALTERNATIVA: Não usar callback, confiar apenas no CSS pointer-events
-    // No estado ready, permitir que a janela receba eventos
-    // O CSS pointer-events: auto apenas na borda permitirá arrastar
-    // O CSS pointer-events: none no body permitirá que controles funcionem quando mouse não está sobre borda
-    // Mas precisamos garantir que a janela de controles tenha prioridade
+    // ALTERNATIVE SOLUTION: Don't use callback, rely only on CSS pointer-events
+    // In ready state, allow the window to receive events
+    // CSS pointer-events: auto only on the border will allow dragging
+    // CSS pointer-events: none on body will allow controls to work when mouse is not over border
+    // But we need to ensure the controls window has priority
     
-    // Usar forward: true para permitir que eventos passem através quando não capturados
-    // Mas permitir que a janela capture eventos quando necessário
+    // Use forward: true to allow events to pass through when not captured
+    // But allow the window to capture events when necessary
     borderWindow.setIgnoreMouseEvents(true, { forward: true });
     
-    // Agora vamos monitorar a posição do mouse e ajustar dinamicamente
-    // Quando mouse está sobre borda, permitir eventos
-    // Quando mouse não está sobre borda, ignorar eventos
+    // Now monitor mouse position and adjust dynamically
+    // When mouse is over border, allow events
+    // When mouse is not over border, ignore events
     this.startMouseMonitoring(adjustedRegion);
   }
   
@@ -314,7 +314,7 @@ class RecordingOverlay {
     const borderWindow = this.borderWindow;
     const borderBounds = borderWindow.getBounds();
     
-    // Calcular área absoluta da borda
+    // Calculate absolute border area
     const borderHitArea = {
       x: borderBounds.x + adjustedRegion.x - 10,
       y: borderBounds.y + adjustedRegion.y - 10,
@@ -322,7 +322,7 @@ class RecordingOverlay {
       height: adjustedRegion.height + 20
     };
     
-    // Monitorar posição do mouse periodicamente
+    // Monitor mouse position periodically
     if (this.mouseMonitorInterval) {
       clearInterval(this.mouseMonitorInterval);
     }
@@ -342,13 +342,13 @@ class RecordingOverlay {
           cursorPos.y <= borderHitArea.y + borderHitArea.height
         );
         
-        // Se mouse está sobre borda, permitir eventos (não ignorar)
-        // Se mouse não está sobre borda, ignorar eventos (permitir que controles funcionem)
+        // If mouse is over border, allow events (don't ignore)
+        // If mouse is not over border, ignore events (allow controls to work)
         borderWindow.setIgnoreMouseEvents(!isOverBorder, { forward: true });
       } catch (error) {
         console.error("[BORDER] Error monitoring mouse:", error);
       }
-    }, 50); // Verificar a cada 50ms
+    }, 50); // Check every 50ms
   }
   
   stopMouseMonitoring() {
