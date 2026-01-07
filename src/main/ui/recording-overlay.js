@@ -96,7 +96,8 @@ class RecordingOverlay {
     this.borderWindow.loadFile(
       path.join(__dirname, "../../renderer/recording-border.html"),
     );
-    this.borderWindow.setIgnoreMouseEvents(true);
+    // Allow mouse events to pass through, but we'll handle them in the renderer
+    this.borderWindow.setIgnoreMouseEvents(true, { forward: true });
     this.borderWindow.setMenuBarVisibility(false);
     this.borderWindow.setVisibleOnAllWorkspaces(true, {
       visibleOnFullScreen: true,
@@ -123,6 +124,11 @@ class RecordingOverlay {
           height: this.regionAbsolute.height,
         };
         this.borderWindow.webContents.send("set-region", adjustedRegion);
+        // Send border window bounds to renderer for drag calculations
+        this.borderWindow.webContents.send("border-window-bounds", actualBounds);
+        // Setup mouse events to only capture when over border area
+        // This allows controls window to receive events normally
+        this.setupBorderMouseEvents(adjustedRegion);
       }, 50);
     });
 
@@ -159,11 +165,19 @@ class RecordingOverlay {
     this.controlsWindow.loadFile(
       path.join(__dirname, "../../renderer/recording-controls.html"),
     );
+    // Ensure controls window can receive mouse events and is always on top
+    // This must be set BEFORE setting ignoreMouseEvents on border
+    this.controlsWindow.setIgnoreMouseEvents(false);
     this.controlsWindow.setMenuBarVisibility(false);
     this.controlsWindow.setVisibleOnAllWorkspaces(true, {
       visibleOnFullScreen: true,
     });
-    this.controlsWindow.setAlwaysOnTop(true, "screen-saver");
+    // Set controls window to be above border window with higher priority
+    this.controlsWindow.setAlwaysOnTop(true, "screen-saver", 1);
+    
+    // Force controls window to be on top by showing it after border
+    // and ensuring it has focus priority
+    this.controlsWindow.setSkipTaskbar(true);
 
     this.controlsWindow.webContents.on("did-finish-load", () => {
       // Inform renderer which side is positioned to adjust internal layout
@@ -182,6 +196,9 @@ class RecordingOverlay {
   setupIpcHandlers() {
     ipcMain.removeAllListeners("expand-controls");
     ipcMain.removeAllListeners("enable-window-drag");
+    ipcMain.removeAllListeners("start-dragging-border");
+    ipcMain.removeAllListeners("update-border-position");
+    ipcMain.removeAllListeners("stop-dragging-border");
 
     ipcMain.on("expand-controls", () => {
       this.expandControls();
@@ -191,6 +208,28 @@ class RecordingOverlay {
       if (this.controlsWindow && !this.controlsWindow.isDestroyed()) {
         this.controlsWindow.setMovable(true);
       }
+    });
+
+    ipcMain.on("start-dragging-border", () => {
+      this.hideControlsWithFade();
+      // Temporarily disable controls window events during drag
+      // so border can receive all mouse events for dragging
+      if (this.controlsWindow && !this.controlsWindow.isDestroyed()) {
+        this.controlsWindow.setIgnoreMouseEvents(true, { forward: true });
+      }
+    });
+
+    ipcMain.on("update-border-position", (event, newRegion) => {
+      this.updateRegionDuringDrag(newRegion);
+    });
+
+    ipcMain.on("stop-dragging-border", () => {
+      // Re-enable controls window events
+      if (this.controlsWindow && !this.controlsWindow.isDestroyed()) {
+        this.controlsWindow.setIgnoreMouseEvents(false);
+      }
+      this.showControlsWithFade();
+      this.repositionControls();
     });
   }
 
@@ -245,9 +284,94 @@ class RecordingOverlay {
     }
   }
 
+  setupBorderMouseEvents(adjustedRegion) {
+    if (!this.borderWindow || this.borderWindow.isDestroyed()) return;
+    
+    // Store region for reference
+    this.adjustedRegion = adjustedRegion;
+    
+    const borderWindow = this.borderWindow;
+    
+    // SOLUÇÃO ALTERNATIVA: Não usar callback, confiar apenas no CSS pointer-events
+    // No estado ready, permitir que a janela receba eventos
+    // O CSS pointer-events: auto apenas na borda permitirá arrastar
+    // O CSS pointer-events: none no body permitirá que controles funcionem quando mouse não está sobre borda
+    // Mas precisamos garantir que a janela de controles tenha prioridade
+    
+    // Usar forward: true para permitir que eventos passem através quando não capturados
+    // Mas permitir que a janela capture eventos quando necessário
+    borderWindow.setIgnoreMouseEvents(true, { forward: true });
+    
+    // Agora vamos monitorar a posição do mouse e ajustar dinamicamente
+    // Quando mouse está sobre borda, permitir eventos
+    // Quando mouse não está sobre borda, ignorar eventos
+    this.startMouseMonitoring(adjustedRegion);
+  }
+  
+  startMouseMonitoring(adjustedRegion) {
+    if (!this.borderWindow || this.borderWindow.isDestroyed()) return;
+    
+    const borderWindow = this.borderWindow;
+    const borderBounds = borderWindow.getBounds();
+    
+    // Calcular área absoluta da borda
+    const borderHitArea = {
+      x: borderBounds.x + adjustedRegion.x - 10,
+      y: borderBounds.y + adjustedRegion.y - 10,
+      width: adjustedRegion.width + 20,
+      height: adjustedRegion.height + 20
+    };
+    
+    // Monitorar posição do mouse periodicamente
+    if (this.mouseMonitorInterval) {
+      clearInterval(this.mouseMonitorInterval);
+    }
+    
+    this.mouseMonitorInterval = setInterval(() => {
+      if (!borderWindow || borderWindow.isDestroyed()) {
+        clearInterval(this.mouseMonitorInterval);
+        return;
+      }
+      
+      try {
+        const cursorPos = screen.getCursorScreenPoint();
+        const isOverBorder = (
+          cursorPos.x >= borderHitArea.x &&
+          cursorPos.x <= borderHitArea.x + borderHitArea.width &&
+          cursorPos.y >= borderHitArea.y &&
+          cursorPos.y <= borderHitArea.y + borderHitArea.height
+        );
+        
+        // Se mouse está sobre borda, permitir eventos (não ignorar)
+        // Se mouse não está sobre borda, ignorar eventos (permitir que controles funcionem)
+        borderWindow.setIgnoreMouseEvents(!isOverBorder, { forward: true });
+      } catch (error) {
+        console.error("[BORDER] Error monitoring mouse:", error);
+      }
+    }, 50); // Verificar a cada 50ms
+  }
+  
+  stopMouseMonitoring() {
+    if (this.mouseMonitorInterval) {
+      clearInterval(this.mouseMonitorInterval);
+      this.mouseMonitorInterval = null;
+    }
+  }
+
   setRecordingState(state) {
     if (this.borderWindow && !this.borderWindow.isDestroyed()) {
       this.borderWindow.webContents.send("set-recording-state", state);
+      // Re-setup mouse events when state changes
+      if (this.adjustedRegion) {
+        if (state === "ready") {
+          // In ready state, start monitoring mouse to allow dragging
+          this.setupBorderMouseEvents(this.adjustedRegion);
+        } else {
+          // When recording, stop monitoring and always ignore mouse events
+          this.stopMouseMonitoring();
+          this.borderWindow.setIgnoreMouseEvents(true, { forward: true });
+        }
+      }
     }
   }
 
@@ -293,6 +417,7 @@ class RecordingOverlay {
   }
 
   close() {
+    this.stopMouseMonitoring();
     if (this.borderWindow && !this.borderWindow.isDestroyed()) {
       this.borderWindow.close();
       this.borderWindow = null;
@@ -305,6 +430,7 @@ class RecordingOverlay {
 
   updateRegion(region) {
     this.region = region;
+    this.regionAbsolute = region;
     if (this.borderWindow && !this.borderWindow.isDestroyed()) {
       const bounds = this.borderWindow.getBounds();
       const adjustedRegion = {
@@ -314,6 +440,74 @@ class RecordingOverlay {
         height: region.height,
       };
       this.borderWindow.webContents.send("set-region", adjustedRegion);
+    }
+  }
+
+  updateRegionDuringDrag(newRegion) {
+    // newRegion is relative to borderWindow, convert to absolute
+    if (this.borderWindow && !this.borderWindow.isDestroyed()) {
+      const bounds = this.borderWindow.getBounds();
+      const absoluteRegion = {
+        x: bounds.x + newRegion.x,
+        y: bounds.y + newRegion.y,
+        width: newRegion.width,
+        height: newRegion.height,
+      };
+      
+      this.region = newRegion; // Keep relative for border window
+      this.regionAbsolute = absoluteRegion; // Store absolute for main.js
+      
+      // Update border window region (it's already relative, so use as-is)
+      this.borderWindow.webContents.send("set-region", newRegion);
+      
+      // Update the adjusted region and restart mouse monitoring with new region
+      this.adjustedRegion = newRegion;
+      this.stopMouseMonitoring();
+      this.startMouseMonitoring(newRegion);
+
+      // Notify main.js to update selectedRegion with absolute coordinates
+      if (this.onRegionUpdateCallback) {
+        this.onRegionUpdateCallback(absoluteRegion);
+      }
+    }
+  }
+
+  setRegionUpdateCallback(callback) {
+    this.onRegionUpdateCallback = callback;
+  }
+
+  hideControlsWithFade() {
+    if (this.controlsWindow && !this.controlsWindow.isDestroyed()) {
+      this.controlsWindow.webContents.send("fade-out-controls");
+    }
+  }
+
+  showControlsWithFade() {
+    if (this.controlsWindow && !this.controlsWindow.isDestroyed()) {
+      // Ensure window can receive mouse events
+      this.controlsWindow.setIgnoreMouseEvents(false);
+      this.controlsWindow.webContents.send("fade-in-controls");
+    }
+  }
+
+  repositionControls() {
+    if (this.controlsWindow && !this.controlsWindow.isDestroyed() && this.region) {
+      const controlsPos = this.calculateControlsPosition(
+        this.region,
+        this.controlsWidth,
+        this.controlsHeight,
+      );
+      this.positionSide = controlsPos.side;
+
+      this.controlsWindow.setBounds({
+        x: controlsPos.x,
+        y: controlsPos.y,
+        width: this.controlsWidth,
+        height: this.controlsHeight,
+      });
+
+      // Inform renderer which side is positioned
+      this.controlsWindow.webContents.send("position-side", this.positionSide);
     }
   }
 }
