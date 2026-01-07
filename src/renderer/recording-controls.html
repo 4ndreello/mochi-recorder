@@ -32,6 +32,14 @@
                 height: 100%;
                 width: 100%;
                 padding: 4px;
+                transition: opacity 0.3s ease;
+                opacity: 1;
+                pointer-events: auto;
+            }
+
+            .container.fade-out {
+                opacity: 0;
+                pointer-events: none !important;
             }
 
             .container.position-bottom {
@@ -523,6 +531,12 @@
                     transform: translateY(0);
                 }
             }
+
+            .container {
+                transition: opacity 0.3s ease;
+                opacity: 1;
+            }
+
         </style>
     </head>
     <body>
@@ -1083,6 +1097,17 @@
             });
 
             closeButton.addEventListener("click", closeOverlay);
+
+            // Handle fade animations for dragging
+            ipcRenderer.on("fade-out-controls", () => {
+                container.classList.add("fade-out");
+            });
+
+            ipcRenderer.on("fade-in-controls", () => {
+                container.classList.remove("fade-out");
+                // Force re-enable pointer events by removing inline style if it exists
+                container.style.pointerEvents = "";
+            });
         </script>
     </body>
 </html>
