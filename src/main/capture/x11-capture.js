@@ -1,30 +1,10 @@
-const { spawn } = require("child_process");
 const { execSync } = require("child_process");
-const { getSystemAudioMonitor, getSystemMicrophone } = require("../utils/env-detector");
+const BaseCapture = require("./base-capture");
 
-class X11Capture {
+class X11Capture extends BaseCapture {
   constructor() {
-    this.ffmpegProcess = null;
+    super();
     this.display = process.env.DISPLAY || ":0";
-    this.region = null;
-    this.useMicrophone = false;
-  }
-
-  setRegion(region) {
-    if (region) {
-      this.region = {
-        x: region.x,
-        y: region.y,
-        width: region.width % 2 === 0 ? region.width : region.width - 1,
-        height: region.height % 2 === 0 ? region.height : region.height - 1,
-      };
-    } else {
-      this.region = null;
-    }
-  }
-
-  setUseMicrophone(useMic) {
-    this.useMicrophone = useMic;
   }
 
   async getScreenResolution() {
@@ -120,7 +100,10 @@ class X11Capture {
     return screen.getPrimaryDisplay();
   }
 
-  async startRecording(outputPath) {
+  /**
+   * Constrói os argumentos de vídeo específicos do X11
+   */
+  async buildVideoArgs() {
     const resolution = await this.getScreenResolution();
 
     // Se houver região selecionada, usar ela; senão, gravar tela inteira
@@ -139,7 +122,7 @@ class X11Capture {
         this.region.y
       );
       console.log(
-        `[X11Capture] Display alvo:`,
+        `[MAIN] [X11Capture] Display alvo:`,
         JSON.stringify(targetDisplay.bounds)
       );
 
@@ -162,7 +145,9 @@ class X11Capture {
         ) {
           insideDisplay = true;
           console.log(
-            `[X11Capture] Seleção está dentro do display: ${JSON.stringify(b)}`
+            `[MAIN] [X11Capture] Seleção está dentro do display: ${JSON.stringify(
+              b
+            )}`
           );
           break;
         }
@@ -170,128 +155,42 @@ class X11Capture {
 
       if (!insideDisplay) {
         console.log(
-          `[X11Capture] AVISO: Seleção está fora de todos os displays!`
+          `[MAIN] [X11Capture] AVISO: Seleção está fora de todos os displays!`
         );
         console.log(
-          `[X11Capture] Isso pode indicar um problema com as coordenadas.`
+          `[MAIN] [X11Capture] Isso pode indicar um problema com as coordenadas.`
         );
       }
 
       offset = `${adjustedX},${adjustedY}`;
-      console.log(`[X11Capture] Gravação: ${size} em ${offset}`);
-      console.log(`[X11Capture] Região Electron:`, JSON.stringify(this.region));
-      console.log(`[X11Capture] X11 bounds:`, JSON.stringify(x11Bounds));
+      console.log(`[MAIN] [X11Capture] Gravação: ${size} em ${offset}`);
       console.log(
-        `[X11Capture] Electron bounds:`,
+        `[MAIN] [X11Capture] Região Electron:`,
+        JSON.stringify(this.region)
+      );
+      console.log(`[MAIN] [X11Capture] X11 bounds:`, JSON.stringify(x11Bounds));
+      console.log(
+        `[MAIN] [X11Capture] Electron bounds:`,
         JSON.stringify(electronBounds)
       );
       console.log(
-        `[X11Capture] Coordenadas finais: x=${adjustedX}, y=${adjustedY}`
+        `[MAIN] [X11Capture] Coordenadas finais: x=${adjustedX}, y=${adjustedY}`
       );
     } else {
       size = `${resolution.width}x${resolution.height}`;
       offset = "0,0";
     }
 
-    const audioMonitor = getSystemAudioMonitor();
-    const microphone = this.useMicrophone ? getSystemMicrophone() : null;
-    
-    console.log("[X11Capture] useMicrophone:", this.useMicrophone);
-    console.log("[X11Capture] audioMonitor:", audioMonitor);
-    console.log("[X11Capture] microphone:", microphone);
-    
-    let args = [];
-    
-    if (microphone) {
-      args = [
-        "-f", "pulse", "-i", audioMonitor,
-        "-f", "pulse", "-i", microphone,
-        "-f", "x11grab", "-s", size, "-r", "60", "-i", `${this.display}+${offset}`,
-        "-filter_complex", "[0:a][1:a]amix=inputs=2:duration=first:dropout_transition=2[aout]",
-        "-map", "2:v", "-map", "[aout]",
-        "-c:v", "libx264", "-preset", "medium", "-crf", "18", "-pix_fmt", "yuv420p",
-        "-c:a", "aac", "-b:a", "128k",
-        "-y", outputPath,
-      ];
-      console.log("[X11Capture] FFmpeg args (com mic):", args.join(" "));
-    } else {
-      args = [
-        "-f", "pulse", "-i", audioMonitor,
-        "-f", "x11grab", "-s", size, "-r", "60", "-i", `${this.display}+${offset}`,
-        "-c:v", "libx264", "-preset", "medium", "-crf", "18", "-pix_fmt", "yuv420p",
-        "-c:a", "aac", "-b:a", "128k",
-        "-y", outputPath,
-      ];
-      console.log("[X11Capture] FFmpeg args (sem mic):", args.join(" "));
-    }
-
-    this.ffmpegProcess = spawn("ffmpeg", args);
-
-    return new Promise((resolve, reject) => {
-      let hasError = false;
-      let errorOutput = "";
-
-      this.ffmpegProcess.stderr.on("data", (data) => {
-        // FFmpeg escreve logs no stderr, mas isso é normal
-        const output = data.toString();
-        errorOutput += output;
-
-        if (
-          output.includes("error") ||
-          output.includes("Error") ||
-          output.includes("not divisible by 2")
-        ) {
-          console.error("FFmpeg error:", output);
-          hasError = true;
-        }
-      });
-
-      this.ffmpegProcess.on("error", (error) => {
-        console.error("Erro ao iniciar FFmpeg:", error);
-        reject(error);
-      });
-
-      // Aguardar um pouco para garantir que FFmpeg iniciou
-      setTimeout(() => {
-        if (hasError) {
-          reject(
-            new Error(
-              `FFmpeg falhou ao iniciar: ${errorOutput.substring(0, 200)}`
-            )
-          );
-        } else if (this.ffmpegProcess && !this.ffmpegProcess.killed) {
-          resolve();
-        } else {
-          reject(new Error("FFmpeg não iniciou corretamente"));
-        }
-      }, 1500);
-    });
-  }
-
-  async stopRecording() {
-    return new Promise((resolve) => {
-      if (this.ffmpegProcess) {
-        // Enviar 'q' para FFmpeg parar graciosamente
-        this.ffmpegProcess.stdin.write("q\n");
-
-        this.ffmpegProcess.on("close", (code) => {
-          console.log(`FFmpeg finalizado com código ${code}`);
-          this.ffmpegProcess = null;
-          resolve();
-        });
-
-        // Timeout de segurança
-        setTimeout(() => {
-          if (this.ffmpegProcess) {
-            this.ffmpegProcess.kill();
-            this.ffmpegProcess = null;
-            resolve();
-          }
-        }, 5000);
-      } else {
-        resolve();
-      }
-    });
+    return [
+      "-f",
+      "x11grab",
+      "-s",
+      size,
+      "-r",
+      "60",
+      "-i",
+      `${this.display}+${offset}`,
+    ];
   }
 }
 
