@@ -46,7 +46,7 @@
       .version-info {
         background: #252525;
         border: 1px solid #333;
-        border-radius: 8px;
+        border-radius: 12px;
         padding: 12px;
         margin-bottom: 20px;
         width: 100%;
@@ -91,7 +91,7 @@
         width: 100%;
         height: 6px;
         background: rgba(60, 60, 60, 0.4);
-        border-radius: 3px;
+        border-radius: 12px;
         overflow: hidden;
       }
 
@@ -119,12 +119,16 @@
         flex: 1;
         padding: 12px 16px;
         border: 1px solid #333;
-        border-radius: 8px;
+        border-radius: 12px;
         background: #252525;
         color: #fff;
         font-size: 14px;
         cursor: pointer;
         transition: all 0.15s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
       }
 
       button:hover:not(:disabled) {
@@ -161,13 +165,47 @@
         padding: 12px;
         background: rgba(74, 222, 128, 0.1);
         border: 1px solid rgba(74, 222, 128, 0.3);
-        border-radius: 8px;
+        border-radius: 12px;
         color: #4ade80;
         font-size: 13px;
       }
 
       .download-complete.active {
         display: block;
+      }
+
+      .progress-spinner {
+        display: none;
+        width: 20px;
+        height: 20px;
+        border: 2px solid rgba(102, 126, 234, 0.3);
+        border-top-color: #667eea;
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+        margin: 0 auto 12px;
+      }
+
+      .progress-container.active .progress-spinner {
+        display: block;
+      }
+
+      .btn-spinner {
+        width: 14px;
+        height: 14px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+        flex-shrink: 0;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
       }
     </style>
   </head>
@@ -189,6 +227,7 @@
     </div>
 
     <div class="progress-container" id="progressContainer">
+      <div class="progress-spinner"></div>
       <div class="progress-bar">
         <div class="progress-fill" id="progressFill"></div>
       </div>
@@ -241,7 +280,7 @@
         isDownloadComplete = true;
         progressContainer.classList.remove("active");
         downloadComplete.classList.add("active");
-        btnUpdate.textContent = "Restart and Install";
+        btnUpdate.innerHTML = "Restart and Install";
         btnUpdate.disabled = false;
         btnLater.disabled = true;
       });
@@ -249,11 +288,17 @@
       btnUpdate.addEventListener("click", async () => {
         if (isDownloadComplete) {
           // Install and restart
+          const originalText = btnUpdate.innerHTML;
+          btnUpdate.disabled = true;
+          btnUpdate.innerHTML = '<div class="btn-spinner"></div> Restarting...';
+          
           try {
             await ipcRenderer.invoke("update-install");
           } catch (error) {
             console.error("Error installing update:", error);
             alert("Error installing update. Please try again.");
+            btnUpdate.disabled = false;
+            btnUpdate.innerHTML = originalText;
           }
         } else if (!isDownloading) {
           // Start download
