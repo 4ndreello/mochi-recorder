@@ -17,7 +17,7 @@ test.describe('Recording Overlay Visual Tests', () => {
 
   test('app should initialize correctly for overlay tests', async () => {
     electronApp = await electron.launch({
-      args: [path.join(projectRoot, 'src/main/main.js')],
+      args: ['--no-sandbox', path.join(projectRoot, 'src/main/main.js')],
       env: { ...process.env, NODE_ENV: 'test' }
     });
 

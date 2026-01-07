@@ -17,7 +17,7 @@ test.describe('Full Recording Flow Tests', () => {
 
   test('IPC handlers should respond correctly', async () => {
     electronApp = await electron.launch({
-      args: [path.join(projectRoot, 'src/main/main.js')],
+      args: ['--no-sandbox', path.join(projectRoot, 'src/main/main.js')],
       env: { ...process.env, NODE_ENV: 'test' }
     });
 
@@ -39,7 +39,7 @@ test.describe('Full Recording Flow Tests', () => {
 
   test('app should report not recording on startup', async () => {
     electronApp = await electron.launch({
-      args: [path.join(projectRoot, 'src/main/main.js')],
+      args: ['--no-sandbox', path.join(projectRoot, 'src/main/main.js')],
       env: { ...process.env, NODE_ENV: 'test' }
     });
 

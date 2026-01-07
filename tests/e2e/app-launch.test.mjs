@@ -17,7 +17,7 @@ test.describe('Mochi App Launch', () => {
 
   test('should launch app successfully', async () => {
     electronApp = await electron.launch({
-      args: [path.join(projectRoot, 'src/main/main.js')],
+      args: ['--no-sandbox', path.join(projectRoot, 'src/main/main.js')],
       env: { ...process.env, NODE_ENV: 'test' }
     });
 
@@ -30,7 +30,7 @@ test.describe('Mochi App Launch', () => {
 
   test('should have Mochi as product name', async () => {
     electronApp = await electron.launch({
-      args: [path.join(projectRoot, 'src/main/main.js')],
+      args: ['--no-sandbox', path.join(projectRoot, 'src/main/main.js')],
       env: { ...process.env, NODE_ENV: 'test' }
     });
 
@@ -50,7 +50,7 @@ test.describe('Mochi App Launch', () => {
 
   test('should start without any visible windows (tray-only)', async () => {
     electronApp = await electron.launch({
-      args: [path.join(projectRoot, 'src/main/main.js')],
+      args: ['--no-sandbox', path.join(projectRoot, 'src/main/main.js')],
       env: { ...process.env, NODE_ENV: 'test' }
     });
 

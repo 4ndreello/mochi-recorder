@@ -9,6 +9,7 @@ const projectRoot = path.join(__dirname, '../..');
 async function launchWithAreaSelector() {
   const electronApp = await electron.launch({
     args: [
+      '--no-sandbox',
       path.join(projectRoot, 'src/main/main.js'),
       '--test-mode',
       '--open-area-selector'
@@ -33,7 +34,7 @@ test.describe('Area Selector Visual Tests', () => {
     // Isso valida a estrutura do UI sem precisar do main process
     
     electronApp = await electron.launch({
-      args: [path.join(projectRoot, 'src/main/main.js')],
+      args: ['--no-sandbox', path.join(projectRoot, 'src/main/main.js')],
       env: { ...process.env, NODE_ENV: 'test' }
     });
 
