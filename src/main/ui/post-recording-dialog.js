@@ -70,7 +70,9 @@ class PostRecordingDialog {
       backgroundColor: '#1a1a1a',
       webPreferences: {
         nodeIntegration: true,
-        contextIsolation: false
+        contextIsolation: false,
+        enableWebSQL: false,
+        spellcheck: false
       }
     });
 

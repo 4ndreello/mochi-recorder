@@ -40,6 +40,8 @@ class AreaSelector {
         webPreferences: {
           nodeIntegration: true,
           contextIsolation: false,
+          enableWebSQL: false,
+          spellcheck: false,
         },
       });
 
