@@ -42,6 +42,20 @@ class VideoProcessor {
     return { width: this.screenWidth, height: this.screenHeight };
   }
 
+  async hasAudioStream() {
+    try {
+      const output = execSync(
+        `ffprobe -v error -select_streams a:0 -show_entries stream=codec_type -of json "${this.inputVideoPath}"`,
+        { encoding: 'utf-8' }
+      );
+      const data = JSON.parse(output);
+      return data.streams && data.streams.length > 0;
+    } catch (error) {
+      console.warn('Error detecting audio stream:', error);
+      return false;
+    }
+  }
+
   async process() {
     // Check if video file exists and is valid
     const fs = require('fs').promises;
@@ -81,13 +95,20 @@ class VideoProcessor {
   }
 
   async copyVideo() {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
+      const hasAudio = await this.hasAudioStream();
+      
       const args = [
         '-i', this.inputVideoPath,
-        '-c', 'copy',
-        '-y',
-        this.outputPath
+        '-c', 'copy'
       ];
+
+      // If no audio stream, explicitly disable audio
+      if (!hasAudio) {
+        args.push('-an');
+      }
+
+      args.push('-y', this.outputPath);
 
       const ffmpeg = spawn('ffmpeg', args);
 
@@ -113,7 +134,7 @@ class VideoProcessor {
   }
 
   async applyZoom(zoomRegions) {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
       // Strategy: use zoompan to apply smooth zoom at click moments
       // For MVP, we'll apply zoom to each click region
       
@@ -158,16 +179,25 @@ class VideoProcessor {
       // Simpler version: apply zoompan with time-based expression
       const zoomExpression = this.buildZoomExpression(zoomRegions);
       
+      // Check if input has audio
+      const hasAudio = await this.hasAudioStream();
+      
       const args = [
         '-i', this.inputVideoPath,
         '-vf', `zoompan=z='${zoomExpression}':d=1:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'`,
         '-c:v', 'libx264',
         '-preset', 'medium',
-        '-crf', '23',
-        '-c:a', 'copy',
-        '-y',
-        this.outputPath
+        '-crf', '23'
       ];
+
+      // Only copy audio if it exists
+      if (hasAudio) {
+        args.push('-c:a', 'copy');
+      } else {
+        args.push('-an');
+      }
+
+      args.push('-y', this.outputPath);
 
       const ffmpeg = spawn('ffmpeg', args);
 

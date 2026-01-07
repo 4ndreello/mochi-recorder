@@ -8,6 +8,7 @@ class BaseCapture {
     this.ffmpegProcess = null;
     this.region = null;
     this.useMicrophone = false;
+    this.useSystemAudio = true;
   }
 
   setRegion(region) {
@@ -25,6 +26,10 @@ class BaseCapture {
 
   setUseMicrophone(useMic) {
     this.useMicrophone = useMic;
+  }
+
+  setUseSystemAudio(useSystemAudio) {
+    this.useSystemAudio = useSystemAudio;
   }
 
   /**
@@ -47,14 +52,16 @@ class BaseCapture {
    * Builds common audio arguments for both implementations
    */
   buildAudioArgs() {
-    const audioMonitor = getSystemAudioMonitor();
+    const audioMonitor = this.useSystemAudio ? getSystemAudioMonitor() : null;
     const microphone = this.useMicrophone ? getSystemMicrophone() : null;
 
     const audioArgs = [];
     const audioInputs = [];
 
-    // System audio (monitor)
-    audioInputs.push({ format: "pulse", source: audioMonitor });
+    // System audio (monitor) - only if enabled
+    if (audioMonitor) {
+      audioInputs.push({ format: "pulse", source: audioMonitor });
+    }
 
     // Microphone (if enabled)
     if (microphone) {
@@ -116,10 +123,10 @@ class BaseCapture {
     const videoArgs = await this.buildVideoArgs();
 
     // Calculate input indices
-    // Audio: 0, 1 (if microphone exists)
-    // Video: last index (2 if microphone exists, 1 if not)
+    // Audio: 0, 1 (if both system audio and microphone)
+    // Video: last index
     const videoInputIndex = audioInputs.length;
-    const hasMicrophone = audioInputs.length === 2;
+    const audioCount = audioInputs.length;
 
     let args = [...audioArgs, ...videoArgs];
 
@@ -134,8 +141,9 @@ class BaseCapture {
       );
     }
 
-    // Audio filter (mix if microphone exists)
-    if (hasMicrophone) {
+    // Handle different audio scenarios
+    if (audioCount === 2) {
+      // Both system audio and microphone: mix them
       const audioFilter = this.buildAudioFilter(2);
       if (audioFilter) {
         if (videoFilters.length > 0) {
@@ -161,8 +169,8 @@ class BaseCapture {
           );
         }
       }
-    } else {
-      // Without microphone, just map video and system audio
+    } else if (audioCount === 1) {
+      // Only one audio source (either system audio or microphone)
       if (videoFilters.length > 0) {
         filterComplex = videoFilters[0];
         args.push(
@@ -176,10 +184,39 @@ class BaseCapture {
       } else {
         args.push("-map", `${videoInputIndex}:v`, "-map", "0:a");
       }
+    } else {
+      // No audio at all
+      if (videoFilters.length > 0) {
+        filterComplex = videoFilters[0];
+        args.push(
+          "-filter_complex",
+          filterComplex,
+          "-map",
+          "[vout]"
+        );
+      } else {
+        args.push("-map", `${videoInputIndex}:v`);
+      }
+      // Add -an flag to disable audio
+      args.push("-an");
     }
 
-    // Add encoding arguments
-    args.push(...this.buildEncodingArgs());
+    // Add encoding arguments (but skip audio codec if no audio)
+    if (audioCount > 0) {
+      args.push(...this.buildEncodingArgs());
+    } else {
+      // Only video encoding args
+      args.push(
+        "-c:v",
+        "libx264",
+        "-preset",
+        "medium",
+        "-crf",
+        "18",
+        "-pix_fmt",
+        "yuv420p"
+      );
+    }
 
     // Add output file
     args.push("-y", outputPath);

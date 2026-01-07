@@ -25,6 +25,7 @@ let videoPath = "";
 let metadataPath = "";
 let selectedRegion = null;
 let useMicrophone = false;
+let useSystemAudio = true;
 
 function createTray() {
   trayManager = new TrayManager();
@@ -135,6 +136,7 @@ async function startCapture() {
 
     captureManager = new CaptureManager();
     captureManager.setUseMicrophone(useMicrophone);
+    captureManager.setUseSystemAudio(useSystemAudio);
     mouseTracker = new MouseTracker();
     eventRecorder = new EventRecorder(metadataPath);
 
@@ -277,4 +279,13 @@ ipcMain.handle("get-microphone-status", () => {
 ipcMain.handle("toggle-microphone", () => {
   useMicrophone = !useMicrophone;
   return { useMicrophone };
+});
+
+ipcMain.handle("get-system-audio-status", () => {
+  return { useSystemAudio };
+});
+
+ipcMain.handle("toggle-system-audio", () => {
+  useSystemAudio = !useSystemAudio;
+  return { useSystemAudio };
 });

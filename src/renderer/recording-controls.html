@@ -413,6 +413,31 @@
                 display: none;
             }
 
+            .speaker-icon-on,
+            .speaker-icon-off {
+                width: 14px;
+                height: 14px;
+                stroke: white;
+                stroke-width: 2;
+                fill: none;
+            }
+
+            .mic-btn.muted .speaker-icon-on {
+                display: none;
+            }
+
+            .mic-btn.muted .speaker-icon-off {
+                display: block;
+            }
+
+            .mic-btn.unmuted .speaker-icon-on {
+                display: block;
+            }
+
+            .mic-btn.unmuted .speaker-icon-off {
+                display: none;
+            }
+
             .stop-icon {
                 width: 10px;
                 height: 10px;
@@ -605,6 +630,34 @@
                     </svg>
                 </button>
                 <button
+                    class="mic-btn unmuted"
+                    id="systemAudioButton"
+                    title="Toggle system audio"
+                >
+                    <svg class="speaker-icon-on" viewBox="0 0 24 24">
+                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                        <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                        <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+                    </svg>
+                    <svg class="speaker-icon-off" viewBox="0 0 24 24">
+                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                        <line
+                            x1="23"
+                            y1="9"
+                            x2="17"
+                            y2="15"
+                            stroke-width="2"
+                        />
+                        <line
+                            x1="17"
+                            y1="9"
+                            x2="23"
+                            y2="15"
+                            stroke-width="2"
+                        />
+                    </svg>
+                </button>
+                <button
                     class="control-btn start-btn"
                     id="startButton"
                     title="Start recording"
@@ -651,8 +704,10 @@
             const topProgressFill = document.getElementById("topProgressFill");
             const errorMsg = document.getElementById("errorMsg");
             const micButton = document.getElementById("micButton");
+            const systemAudioButton = document.getElementById("systemAudioButton");
 
             let isMicEnabled = false;
+            let isSystemAudioEnabled = true;
             let recordingState = "ready";
 
             const uploadBtnOriginalHtml = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -783,7 +838,37 @@
                 updateMicUI();
             });
 
+            async function initSystemAudioStatus() {
+                const status = await ipcRenderer.invoke(
+                    "get-system-audio-status",
+                );
+                isSystemAudioEnabled = status.useSystemAudio;
+                updateSystemAudioUI();
+            }
+
+            function updateSystemAudioUI() {
+                if (isSystemAudioEnabled) {
+                    systemAudioButton.classList.remove("muted");
+                    systemAudioButton.classList.add("unmuted");
+                    systemAudioButton.title = "System audio on";
+                } else {
+                    systemAudioButton.classList.remove("unmuted");
+                    systemAudioButton.classList.add("muted");
+                    systemAudioButton.title = "System audio off";
+                }
+            }
+
+            systemAudioButton.addEventListener("click", async () => {
+                // Only allow system audio change in ready state
+                if (recordingState !== "ready") return;
+
+                const result = await ipcRenderer.invoke("toggle-system-audio");
+                isSystemAudioEnabled = result.useSystemAudio;
+                updateSystemAudioUI();
+            });
+
             initMicStatus();
+            initSystemAudioStatus();
 
             // Event: user clicks start recording button
             startButton.addEventListener("click", () => {
@@ -795,6 +880,7 @@
                 startButton.disabled = true;
                 startButton.innerHTML = '<div class="btn-spinner"></div>';
                 micButton.classList.add("disabled");
+                systemAudioButton.classList.add("disabled");
                 closeButton.classList.remove("visible");
                 recLabel.textContent = "STARTING...";
 
@@ -817,6 +903,7 @@
                 closeButton.classList.remove("visible");
 
                 micButton.classList.add("disabled");
+                systemAudioButton.classList.add("disabled");
 
                 startTime = Date.now();
                 timerInterval = setInterval(updateTimer, 1000);

@@ -8,6 +8,7 @@ class CaptureManager {
     this.captureInstance = null;
     this.ffmpegProcess = null;
     this.useMicrophone = false;
+    this.useSystemAudio = true;
   }
 
   async initialize() {
@@ -26,6 +27,10 @@ class CaptureManager {
     this.useMicrophone = useMic;
   }
 
+  setUseSystemAudio(useSystemAudio) {
+    this.useSystemAudio = useSystemAudio;
+  }
+
   async startRecording(outputPath, region = null) {
     if (!this.captureInstance) {
       await this.initialize();
@@ -37,6 +42,10 @@ class CaptureManager {
     
     if (this.captureInstance.setUseMicrophone) {
       this.captureInstance.setUseMicrophone(this.useMicrophone);
+    }
+
+    if (this.captureInstance.setUseSystemAudio) {
+      this.captureInstance.setUseSystemAudio(this.useSystemAudio);
     }
 
     return await this.captureInstance.startRecording(outputPath);
