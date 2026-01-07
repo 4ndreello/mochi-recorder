@@ -8,11 +8,13 @@ const TrayManager = require("./ui/tray-manager");
 const AreaSelector = require("./ui/area-selector");
 const RecordingOverlay = require("./ui/recording-overlay");
 const PostRecordingDialog = require("./ui/post-recording-dialog");
+const UpdateManager = require("./ui/update-manager");
 
 let trayManager;
 let areaSelector;
 let recordingOverlay;
 let postRecordingDialog;
+let updateManager;
 let captureManager;
 let mouseTracker;
 let eventRecorder;
@@ -38,6 +40,10 @@ function createTray() {
 app.whenReady().then(() => {
   createTray();
 
+  // Inicializar UpdateManager e começar verificação periódica
+  updateManager = new UpdateManager();
+  updateManager.startPeriodicCheck(30); // Verificar a cada 30 minutos
+
   app.on("activate", () => {
     if (!trayManager) {
       createTray();
@@ -45,8 +51,7 @@ app.whenReady().then(() => {
   });
 });
 
-app.on("window-all-closed", (e) => {
-});
+app.on("window-all-closed", (e) => {});
 
 ipcMain.on("stop-recording-clicked", () => {
   stopRecording();
@@ -107,10 +112,7 @@ async function startCapture() {
 
   try {
     const timestamp = Date.now();
-    videoPath = path.join(
-      app.getPath("temp"),
-      `mochi_raw_${timestamp}.mp4`
-    );
+    videoPath = path.join(app.getPath("temp"), `mochi_raw_${timestamp}.mp4`);
     metadataPath = path.join(
       app.getPath("temp"),
       `mochi_metadata_${timestamp}.json`
@@ -147,7 +149,7 @@ async function startCapture() {
     console.error("[MAIN] Erro ao iniciar captura:", error);
     isRecording = false;
     isStartingRecording = false;
-    
+
     if (recordingOverlay) {
       recordingOverlay.notifyError(error.message);
     }
@@ -155,8 +157,13 @@ async function startCapture() {
 }
 
 async function stopRecording() {
-  console.log("[MAIN] stopRecording chamado, isRecording:", isRecording, "isStartingRecording:", isStartingRecording);
-  
+  console.log(
+    "[MAIN] stopRecording chamado, isRecording:",
+    isRecording,
+    "isStartingRecording:",
+    isStartingRecording
+  );
+
   if (!isRecording && !isStartingRecording) {
     console.log("[MAIN] Não está gravando, ignorando");
     return;
@@ -164,7 +171,7 @@ async function stopRecording() {
 
   if (isStartingRecording) {
     console.log("[MAIN] Ainda iniciando, aguardando...");
-    await new Promise(resolve => {
+    await new Promise((resolve) => {
       const checkInterval = setInterval(() => {
         if (!isStartingRecording) {
           clearInterval(checkInterval);
@@ -190,7 +197,7 @@ async function stopRecording() {
     console.log("[MAIN] Parando mouse tracker...");
     mouseTracker.stop();
     console.log("[MAIN] Mouse tracker parado");
-    
+
     console.log("[MAIN] Finalizando event recorder...");
     await eventRecorder.finish();
     console.log("[MAIN] Event recorder finalizado");
@@ -203,11 +210,11 @@ async function stopRecording() {
 
     const fs = require("fs").promises;
     console.log("[MAIN] Verificando arquivo de vídeo:", videoPath);
-    
+
     try {
       const stats = await fs.stat(videoPath);
       console.log("[MAIN] Arquivo existe, tamanho:", stats.size, "bytes");
-      
+
       if (stats.size === 0) {
         throw new Error("Arquivo de vídeo está vazio");
       }
@@ -221,7 +228,7 @@ async function stopRecording() {
       `mochi_${Date.now()}.mp4`
     );
     console.log("[MAIN] Processando vídeo para:", outputPath);
-    
+
     const processor = new VideoProcessor(videoPath, metadataPath, outputPath);
 
     await processor.process();
@@ -235,9 +242,9 @@ async function stopRecording() {
   } catch (error) {
     console.error("[MAIN] Erro ao parar gravação:", error);
     console.error("[MAIN] Stack:", error.stack);
-    
+
     isRecording = false;
-    
+
     if (recordingOverlay) {
       recordingOverlay.notifyError(error.message);
     }
