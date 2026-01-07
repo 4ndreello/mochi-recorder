@@ -14,7 +14,11 @@
     "build": "electron-builder",
     "build:linux": "electron-builder --linux",
     "build:dir": "electron-builder --linux --dir",
-    "postinstall": "electron-builder install-app-deps"
+    "postinstall": "electron-builder install-app-deps",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test"
   },
   "keywords": [
     "screen-recording",
@@ -24,8 +28,10 @@
   ],
   "license": "MIT",
   "devDependencies": {
+    "@playwright/test": "^1.49.1",
     "electron": "^28.0.0",
-    "electron-builder": "^24.9.1"
+    "electron-builder": "^24.9.1",
+    "vitest": "^4.0.16"
   },
   "dependencies": {
     "electron-updater": "^6.1.7",

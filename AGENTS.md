@@ -12,9 +12,29 @@ Mochi is an Electron-based screen recording tool for Linux, inspired by Screen S
 - `npm run build:dir`: Build the application directory without packaging.
 
 ### Testing
-*Note: Currently, there are no automated tests implemented. When adding tests, follow these patterns:*
-- **Single Test**: `npx jest path/to/file.test.js` (if Jest is added).
-- **All Tests**: `npm test`.
+- `npm test`: Run unit tests (Vitest).
+- `npm run test:watch`: Run unit tests in watch mode.
+- `npm run test:coverage`: Run unit tests with coverage report.
+- `npm run test:e2e`: Run E2E/visual tests (Playwright).
+
+#### Test Structure
+```
+tests/
+├── unit/                    # Unit tests (Vitest)
+│   └── processing/
+│       └── zoom-analyzer.test.mjs
+└── e2e/                     # E2E/Visual tests (Playwright)
+    ├── app-launch.test.mjs
+    ├── area-selector.test.mjs
+    ├── recording-overlay.test.mjs
+    ├── full-flow.test.mjs
+    └── ui-structure.test.mjs
+```
+
+#### Writing Tests
+- **Unit Tests**: Use Vitest with ESM syntax (`.mjs` files). Import CommonJS modules using `createRequire`.
+- **E2E Tests**: Use Playwright with `_electron` API for Electron-specific tests, or `chromium` for HTML-only validation.
+- Test files should mirror the source structure where applicable.
 
 ## 🏗 Architecture & Patterns
 
@@ -57,3 +77,4 @@ Mochi is an Electron-based screen recording tool for Linux, inspired by Screen S
 2. **Wayland Support**: Be mindful that Wayland capture (via PipeWire/Portal) behaves differently than X11.
 3. **Paths**: Use `app.getPath('temp')` for raw recordings and `app.getPath('downloads')` for final output.
 4. **Modularity**: Keep processing logic (zoom, mouse tracking) decoupled from UI logic.
+5. **Testing**: Run `npm test` for unit tests and `npm run test:e2e` for visual/E2E tests before committing.
