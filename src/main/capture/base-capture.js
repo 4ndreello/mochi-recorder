@@ -103,7 +103,9 @@ class BaseCapture {
       "-preset",
       "medium",
       "-crf",
-      "18",
+      "23",
+      "-threads",
+      "4",
       "-pix_fmt",
       "yuv420p",
       "-c:a",
@@ -212,7 +214,9 @@ class BaseCapture {
         "-preset",
         "medium",
         "-crf",
-        "18",
+        "23",
+        "-threads",
+        "4",
         "-pix_fmt",
         "yuv420p"
       );
