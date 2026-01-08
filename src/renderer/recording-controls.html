@@ -478,6 +478,40 @@
         stroke-width: 2;
       }
 
+      /* Rerecord Button */
+      .rerecord-button {
+        display: none;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        background: rgba(60, 60, 60, 0.8);
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+      }
+
+      .rerecord-button.visible {
+        display: flex;
+      }
+
+      .rerecord-button:hover {
+        background: rgba(102, 126, 234, 0.9);
+        transform: scale(1.08);
+      }
+
+      .rerecord-button:active {
+        transform: scale(0.95);
+      }
+
+      .rerecord-button svg {
+        width: 14px;
+        height: 14px;
+        stroke: rgba(255, 255, 255, 0.9);
+        stroke-width: 2;
+      }
+
       /* Gear Button */
       .gear-btn {
         display: flex;
@@ -611,7 +645,7 @@
         gap: 6px;
         color: rgba(255, 255, 255, 0.95);
         font-size: 10px;
-        
+
         margin-bottom: 6px;
       }
 
@@ -701,11 +735,19 @@
         <div class="settings-row">
           <span class="row-label">Cursor</span>
           <div class="row-buttons">
-            <button class="setting-opt active" data-type="showCursor" data-value="true">
-              On
-            </button>
-            <button class="setting-opt" data-type="showCursor" data-value="false">
+            <button
+              class="setting-opt"
+              data-type="showCursor"
+              data-value="false"
+            >
               Off
+            </button>
+            <button
+              class="setting-opt active"
+              data-type="showCursor"
+              data-value="true"
+            >
+              On
             </button>
           </div>
         </div>
@@ -824,6 +866,21 @@
         >
           <div class="stop-icon"></div>
         </button>
+        <button
+          class="rerecord-button"
+          id="rerecordButton"
+          title="Re-record (R)"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+          </svg>
+        </button>
         <button class="close-button" id="closeButton" title="Close (ESC)">
           <svg viewBox="0 0 24 24" fill="none">
             <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -840,6 +897,7 @@
       const startButton = document.getElementById("startButton");
       const stopButton = document.getElementById("stopButton");
       const closeButton = document.getElementById("closeButton");
+      const rerecordButton = document.getElementById("rerecordButton");
       const timerElement = document.getElementById("timer");
       const recordingDot = document.getElementById("recordingDot");
       const recLabel = document.getElementById("recLabel");
@@ -1038,7 +1096,8 @@
           const isActive =
             (type === "fps" && parseInt(value) === currentSettings.fps) ||
             (type === "quality" && value === currentSettings.quality) ||
-            (type === "showCursor" && (value === "true") === currentSettings.showCursor);
+            (type === "showCursor" &&
+              (value === "true") === currentSettings.showCursor);
           btn.classList.toggle("active", isActive);
         });
       }
@@ -1183,6 +1242,7 @@
         processingStatus.classList.remove("visible");
         actionButtons.classList.add("visible");
         closeButton.classList.add("visible");
+        rerecordButton.classList.add("visible");
         stopButton.style.display = "none";
       });
 
@@ -1200,6 +1260,7 @@
         errorMsg.classList.add("visible");
 
         closeButton.classList.add("visible");
+        rerecordButton.classList.add("visible");
         stopButton.style.display = "none";
 
         const controlsBar = document.querySelector(".controls-bar");
@@ -1296,11 +1357,11 @@
       // Processing progress handler
       ipcRenderer.on("processing-progress", (event, data) => {
         const { stage, percent } = data;
-        
+
         // Show progress bar
         topProgress.classList.add("visible");
         topProgressFill.style.width = percent + "%";
-        
+
         // Update status text based on stage
         const statusSpan = processingStatus.querySelector("span");
         switch (stage) {
@@ -1323,6 +1384,22 @@
       });
 
       closeButton.addEventListener("click", closeOverlay);
+
+      // Re-record button: restart the recording flow
+      rerecordButton.addEventListener("click", () => {
+        stopAudioMeter();
+        ipcRenderer.send("rerecord-clicked");
+      });
+
+      // Keyboard shortcut for re-record
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "r" || e.key === "R") {
+          if (rerecordButton.classList.contains("visible")) {
+            stopAudioMeter();
+            ipcRenderer.send("rerecord-clicked");
+          }
+        }
+      });
     </script>
   </body>
 </html>

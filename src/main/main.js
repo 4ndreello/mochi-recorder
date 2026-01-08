@@ -9,6 +9,7 @@ const AreaSelector = require("./ui/area-selector");
 const RecordingOverlay = require("./ui/recording-overlay");
 const PostRecordingDialog = require("./ui/post-recording-dialog");
 const UpdateManager = require("./ui/update-manager");
+const SettingsManager = require("./utils/settings-manager");
 
 let trayManager;
 let areaSelector;
@@ -18,6 +19,7 @@ let updateManager;
 let captureManager;
 let mouseTracker;
 let eventRecorder;
+let settingsManager;
 let isRecording = false;
 let isStartingRecording = false;
 let recordingStartTime = 0;
@@ -70,20 +72,21 @@ function createTray() {
 }
 
 app.whenReady().then(() => {
-  // Set application icon for launcher/desktop
   const iconPath = path.join(__dirname, "../renderer/assets/icon.png");
   const { nativeImage } = require("electron");
   const icon = nativeImage.createFromPath(iconPath);
   if (!icon.isEmpty()) {
-    app.dock?.setIcon(icon); // macOS (if available)
-    // For Linux, the icon is set via electron-builder during build
-    // But we can also set it here for development
+    app.dock?.setIcon(icon);
     if (process.platform === "linux") {
-      // On Linux, the icon is primarily set via the .desktop file
-      // which electron-builder generates, but we ensure it's available
       app.setAppUserModelId("com.mochi.app");
     }
   }
+
+  settingsManager = new SettingsManager();
+  const savedSettings = settingsManager.load();
+  recordingSettings = savedSettings.recordingSettings;
+  useMicrophone = savedSettings.useMicrophone;
+  useSystemAudio = savedSettings.useSystemAudio;
 
   createTray();
 
@@ -121,6 +124,16 @@ ipcMain.on("cancel-recording-overlay", () => {
     recordingOverlay = null;
   }
   selectedRegion = null;
+});
+
+ipcMain.on("rerecord-clicked", () => {
+  console.log("[MAIN] Re-record requested");
+  if (recordingOverlay) {
+    recordingOverlay.close();
+    recordingOverlay = null;
+  }
+  selectedRegion = null;
+  showAreaSelector();
 });
 
 function showAreaSelector() {
@@ -359,6 +372,7 @@ ipcMain.handle("get-microphone-status", () => {
 
 ipcMain.handle("toggle-microphone", () => {
   useMicrophone = !useMicrophone;
+  settingsManager.save({ recordingSettings, useMicrophone, useSystemAudio });
   return { useMicrophone };
 });
 
@@ -368,6 +382,7 @@ ipcMain.handle("get-system-audio-status", () => {
 
 ipcMain.handle("toggle-system-audio", () => {
   useSystemAudio = !useSystemAudio;
+  settingsManager.save({ recordingSettings, useMicrophone, useSystemAudio });
   return { useSystemAudio };
 });
 
@@ -377,6 +392,7 @@ ipcMain.handle("get-settings", () => {
 
 ipcMain.handle("set-settings", (event, settings) => {
   recordingSettings = { ...recordingSettings, ...settings };
+  settingsManager.save({ recordingSettings, useMicrophone, useSystemAudio });
   console.log("[MAIN] Settings updated:", recordingSettings);
   return recordingSettings;
 });
