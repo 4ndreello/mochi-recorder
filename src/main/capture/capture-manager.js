@@ -6,7 +6,6 @@ class CaptureManager {
   constructor() {
     this.environment = null;
     this.captureInstance = null;
-    this.ffmpegProcess = null;
     this.useMicrophone = false;
     this.useSystemAudio = true;
     this.fps = 30;

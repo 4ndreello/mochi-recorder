@@ -182,6 +182,8 @@ class X11Capture extends BaseCapture {
     }
 
     return [
+      "-thread_queue_size",
+      "1024",
       "-f",
       "x11grab",
       "-s",
