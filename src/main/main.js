@@ -188,17 +188,27 @@ async function startCapture() {
     captureManager.setQuality(recordingSettings.quality);
     mouseTracker = new MouseTracker();
     eventRecorder = new EventRecorder(metadataPath);
+    
+    eventRecorder.setSession({
+      width: selectedRegion.width,
+      height: selectedRegion.height,
+      fps: recordingSettings.fps,
+      region: selectedRegion
+    });
 
+    const hrtimeStart = process.hrtime.bigint();
     recordingStartTime = Date.now();
 
     mouseTracker.start((event) => {
-      const relativeTime = Date.now() - recordingStartTime;
-      eventRecorder.record(event, relativeTime);
+      eventRecorder.record(event, event.t);
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    const hrtimeBeforeFFmpeg = process.hrtime.bigint();
+    const videoStartOffset = Number(hrtimeBeforeFFmpeg - hrtimeStart) / 1_000_000;
 
     await captureManager.startRecording(videoPath, selectedRegion);
+
+    eventRecorder.setVideoStartOffset(videoStartOffset);
 
     isRecording = true;
     isStartingRecording = false;

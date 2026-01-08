@@ -3,13 +3,20 @@ const { EventEmitter } = require('events');
 const { execSync } = require('child_process');
 const { detectEnvironment } = require('../utils/env-detector');
 
+const POLLING_INTERVAL_MS = 1;
+const TARGET_POLLING_HZ = 1000;
+
 class MouseTracker extends EventEmitter {
   constructor() {
     super();
     this.isTracking = false;
     this.x11Client = null;
+    this.x11Display = null;
+    this.x11Root = null;
     this.display = null;
     this.environment = null;
+    this.startTimeNs = null;
+    this.lastButtonState = 0;
   }
 
   async start(callback) {
@@ -32,21 +39,22 @@ class MouseTracker extends EventEmitter {
 
   async startX11(callback) {
     try {
-      // Tentar conectar ao X11
       this.display = process.env.DISPLAY || ':0';
       
       x11.createClient((err, display) => {
         if (err) {
-          console.warn('Could not connect to X11, using alternative method:', err);
+          console.warn('[MouseTracker] Could not connect to X11, using fallback:', err.message);
           this.startPolling(callback);
           return;
         }
 
-        this.x11Client = display;
-        this.setupX11Tracking(callback);
+        this.x11Client = display.client;
+        this.x11Display = display;
+        this.x11Root = display.screen[0].root;
+        this.setupNativeX11Tracking(callback);
       });
     } catch (error) {
-      console.warn('Error initializing X11, using polling:', error);
+      console.warn('[MouseTracker] Error initializing X11, using polling:', error);
       this.startPolling(callback);
     }
   }
@@ -73,41 +81,75 @@ class MouseTracker extends EventEmitter {
   }
 
   setupX11Tracking(callback) {
-    // Avoid bad access: use safer method
-    // Instead of modifying root window, use polling or xinput
-    console.log('X11 connected, using safe tracking method');
+    console.log('[MouseTracker] X11 connected, using polling');
+    this.isTracking = true;
+    this.setupBasicPolling(callback);
+  }
+
+  setupNativeX11Tracking(callback) {
+    console.log(`[MouseTracker] Native X11 tracking enabled (target: ${TARGET_POLLING_HZ}Hz)`);
+    this.isTracking = true;
+    this.startTimeNs = process.hrtime.bigint();
     
-    // Use safer alternative method to avoid bad access
-    this.setupAlternativeClickMonitoring(callback);
+    let lastX = null;
+    let lastY = null;
+    
+    const queryPointer = () => {
+      if (!this.isTracking || !this.x11Client) return;
+      
+      this.x11Client.QueryPointer(this.x11Root, (err, pointer) => {
+        if (err || !this.isTracking) {
+          if (this.isTracking) {
+            setTimeout(queryPointer, POLLING_INTERVAL_MS);
+          }
+          return;
+        }
+        
+        const x = pointer.rootX;
+        const y = pointer.rootY;
+        const buttons = pointer.mask;
+        
+        const nowNs = process.hrtime.bigint();
+        const elapsedMs = Number(nowNs - this.startTimeNs) / 1_000_000;
+        
+        if (lastX !== x || lastY !== y) {
+          callback({
+            type: 'move',
+            x: x,
+            y: y,
+            t: elapsedMs,
+            timestamp: Date.now()
+          });
+          lastX = x;
+          lastY = y;
+        }
+        
+        const leftButton = (buttons & 0x100) !== 0;
+        const wasLeftPressed = (this.lastButtonState & 0x100) !== 0;
+        
+        if (leftButton && !wasLeftPressed) {
+          callback({
+            type: 'click',
+            x: x,
+            y: y,
+            button: 1,
+            t: elapsedMs,
+            timestamp: Date.now()
+          });
+        }
+        
+        this.lastButtonState = buttons;
+        
+        setImmediate(queryPointer);
+      });
+    };
+    
+    queryPointer();
   }
 
   startPolling(callback) {
-    // Fallback: use polling with xdotool or alternative method
-    // For MVP, we'll use a simpler method
-    const { spawn } = require('child_process');
-    
-    // Use xdotool to monitor mouse (if available)
-    const xdotool = spawn('xdotool', ['mousemove', '--', 'getmouselocation', '--shell'], {
-      stdio: ['ignore', 'pipe', 'ignore']
-    });
-
-    let lastX = null;
-    let lastY = null;
-    let lastClickTime = 0;
-
-    // Alternative polling using xev or native method
-    // For now, we'll use a simple interval
-    this.pollInterval = setInterval(() => {
-      if (!this.isTracking) return;
-
-      // For MVP, we'll focus only on clicks
-      // Full mouse tracking will be improved later
-    }, 100);
-
     this.isTracking = true;
-
-    // Monitor clicks via xinput or alternative method
-    this.setupClickMonitoring(callback);
+    this.setupBasicPolling(callback);
   }
 
   setupClickMonitoring(callback) {
@@ -205,10 +247,9 @@ class MouseTracker extends EventEmitter {
   }
 
   setupBasicPolling(callback) {
-    // Most basic method: periodic polling of mouse position
-    // This method doesn't capture clicks perfectly, but it's a fallback
-    console.log('Using basic tracking method (limited)');
+    console.log('[MouseTracker] Using xdotool fallback polling (100Hz)');
     
+    this.startTimeNs = process.hrtime.bigint();
     let lastX = null;
     let lastY = null;
     
@@ -224,11 +265,15 @@ class MouseTracker extends EventEmitter {
           const x = parseInt(xMatch[1]);
           const y = parseInt(yMatch[1]);
           
+          const nowNs = process.hrtime.bigint();
+          const elapsedMs = Number(nowNs - this.startTimeNs) / 1_000_000;
+          
           if (lastX !== x || lastY !== y) {
             callback({
               type: 'move',
               x: x,
               y: y,
+              t: elapsedMs,
               timestamp: Date.now()
             });
             lastX = x;
@@ -236,9 +281,8 @@ class MouseTracker extends EventEmitter {
           }
         }
       } catch (e) {
-        // Ignorar erro
       }
-    }, 50); // Poll every 50ms
+    }, 10);
   }
 
   stop() {
@@ -253,9 +297,10 @@ class MouseTracker extends EventEmitter {
       try {
         this.x11Client.close();
       } catch (error) {
-        // Ignore error on close
       }
       this.x11Client = null;
+      this.x11Display = null;
+      this.x11Root = null;
     }
   }
 }
