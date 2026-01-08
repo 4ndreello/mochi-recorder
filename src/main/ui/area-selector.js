@@ -6,12 +6,13 @@ class AreaSelector {
     this.windows = []; // Array of { window, display }
     this.selection = null;
     this.callback = null;
+    this.cancelCallback = null;
     this.areaSelectedHandler = null;
     this.cancelledHandler = null;
     this.selectionStartedHandler = null;
   }
 
-  create(callback) {
+  create(callback, cancelCallback) {
     const displays = screen.getAllDisplays();
 
     console.log("[AreaSelector] Displays detected:");
@@ -20,6 +21,7 @@ class AreaSelector {
     });
 
     this.callback = callback;
+    this.cancelCallback = cancelCallback;
 
     // Create a window for each monitor
     displays.forEach((display, index) => {
@@ -127,6 +129,9 @@ class AreaSelector {
 
       if (sourceWindow) {
         console.log("[AreaSelector] Selection cancelled");
+        if (this.cancelCallback) {
+          this.cancelCallback();
+        }
         this.close();
       }
     };

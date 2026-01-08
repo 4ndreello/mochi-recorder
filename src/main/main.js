@@ -123,11 +123,28 @@ ipcMain.on("cancel-recording-overlay", () => {
 });
 
 function showAreaSelector() {
+  if (
+    areaSelector ||
+    recordingOverlay ||
+    isRecording ||
+    isStartingRecording
+  ) {
+    console.log("[MAIN] Area selector or recording already active, ignoring");
+    return;
+  }
+
   areaSelector = new AreaSelector();
-  areaSelector.create((region) => {
-    selectedRegion = region;
-    showRecordingOverlay(region);
-  });
+  areaSelector.create(
+    (region) => {
+      selectedRegion = region;
+      areaSelector = null;
+      showRecordingOverlay(region);
+    },
+    () => {
+      console.log("[MAIN] Area selection cancelled");
+      areaSelector = null;
+    }
+  );
   areaSelector.show();
 }
 
