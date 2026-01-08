@@ -97,18 +97,20 @@ class VideoProcessor {
       throw new Error(`Video file not found or invalid: ${this.inputVideoPath}`);
     }
 
-    await this.loadMetadata();
-    this.emitProgress('preparing', 5);
-    
-    try {
-      await this.getVideoDimensions();
-    } catch (error) {
-      console.warn('Could not get video dimensions, using default values');
-      if (this.metadata && this.metadata.events && this.metadata.events.length > 0) {
-        const maxX = Math.max(...this.metadata.events.map(e => e.x || 0));
-        const maxY = Math.max(...this.metadata.events.map(e => e.y || 0));
-        this.screenWidth = Math.max(maxX + 100, 1920);
-        this.screenHeight = Math.max(maxY + 100, 1080);
+    if (this.enableCursor) {
+      await this.loadMetadata();
+      this.emitProgress('preparing', 5);
+      
+      try {
+        await this.getVideoDimensions();
+      } catch (error) {
+        console.warn('Could not get video dimensions, using default values');
+        if (this.metadata && this.metadata.events && this.metadata.events.length > 0) {
+          const maxX = Math.max(...this.metadata.events.map(e => e.x || 0));
+          const maxY = Math.max(...this.metadata.events.map(e => e.y || 0));
+          this.screenWidth = Math.max(maxX + 100, 1920);
+          this.screenHeight = Math.max(maxY + 100, 1080);
+        }
       }
     }
 
@@ -118,12 +120,12 @@ class VideoProcessor {
 
   async applyEffects() {
     const hasAudio = await this.hasAudioStream();
-    const hasEvents = this.metadata.events && this.metadata.events.length > 0;
+    const hasEvents = this.metadata && this.metadata.events && this.metadata.events.length > 0;
 
     if (!this.enableCursor || !hasEvents) {
       this.emitProgress('saving', 50);
       const result = await this.copyVideo();
-      this.emitProgress('saving', 100);
+      this.emitProgress('done', 100);
       return result;
     }
 

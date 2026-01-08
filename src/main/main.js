@@ -29,6 +29,7 @@ let useSystemAudio = true;
 let recordingSettings = {
   fps: 30,
   quality: "medium",
+  showCursor: true,
 };
 
 // Garantir que apenas uma instância do Mochi esteja rodando
@@ -186,29 +187,39 @@ async function startCapture() {
     captureManager.setUseSystemAudio(useSystemAudio);
     captureManager.setFps(recordingSettings.fps);
     captureManager.setQuality(recordingSettings.quality);
-    mouseTracker = new MouseTracker();
-    eventRecorder = new EventRecorder(metadataPath);
-    
-    eventRecorder.setSession({
-      width: selectedRegion.width,
-      height: selectedRegion.height,
-      fps: recordingSettings.fps,
-      region: selectedRegion
-    });
+    captureManager.setDrawMouse(!recordingSettings.showCursor);
 
     const hrtimeStart = process.hrtime.bigint();
     recordingStartTime = Date.now();
 
-    mouseTracker.start((event) => {
-      eventRecorder.record(event, event.t);
-    });
+    // Only track mouse if cursor overlay is enabled
+    if (recordingSettings.showCursor) {
+      mouseTracker = new MouseTracker();
+      eventRecorder = new EventRecorder(metadataPath);
+      
+      eventRecorder.setSession({
+        width: selectedRegion.width,
+        height: selectedRegion.height,
+        fps: recordingSettings.fps,
+        region: selectedRegion
+      });
+
+      mouseTracker.start((event) => {
+        eventRecorder.record(event, event.t);
+      });
+    } else {
+      mouseTracker = null;
+      eventRecorder = null;
+    }
 
     const hrtimeBeforeFFmpeg = process.hrtime.bigint();
     const videoStartOffset = Number(hrtimeBeforeFFmpeg - hrtimeStart) / 1_000_000;
 
     await captureManager.startRecording(videoPath, selectedRegion);
 
-    eventRecorder.setVideoStartOffset(videoStartOffset);
+    if (eventRecorder) {
+      eventRecorder.setVideoStartOffset(videoStartOffset);
+    }
 
     isRecording = true;
     isStartingRecording = false;
@@ -270,13 +281,17 @@ async function stopRecording() {
     await captureManager.stopRecording();
     console.log("[MAIN] Capture stopped");
 
-    console.log("[MAIN] Stopping mouse tracker...");
-    mouseTracker.stop();
-    console.log("[MAIN] Mouse tracker stopped");
+    if (mouseTracker) {
+      console.log("[MAIN] Stopping mouse tracker...");
+      mouseTracker.stop();
+      console.log("[MAIN] Mouse tracker stopped");
+    }
 
-    console.log("[MAIN] Finishing event recorder...");
-    await eventRecorder.finish();
-    console.log("[MAIN] Event recorder finished");
+    if (eventRecorder) {
+      console.log("[MAIN] Finishing event recorder...");
+      await eventRecorder.finish();
+      console.log("[MAIN] Event recorder finished");
+    }
 
     isRecording = false;
 
@@ -306,6 +321,7 @@ async function stopRecording() {
     console.log("[MAIN] Processing video to:", outputPath);
 
     const processor = new VideoProcessor(videoPath, metadataPath, outputPath);
+    processor.enableCursor = recordingSettings.showCursor;
 
     processor.setProgressCallback(({ stage, percent }) => {
       if (recordingOverlay) {

@@ -18,6 +18,7 @@ class BaseCapture {
     this.useSystemAudio = true;
     this.fps = 30;
     this.quality = "medium";
+    this.drawMouse = false;
   }
 
   setRegion(region) {
@@ -47,6 +48,10 @@ class BaseCapture {
 
   setQuality(quality) {
     this.quality = quality;
+  }
+
+  setDrawMouse(drawMouse) {
+    this.drawMouse = drawMouse;
   }
 
   getCrf() {

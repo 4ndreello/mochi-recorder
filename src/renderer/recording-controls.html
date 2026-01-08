@@ -526,22 +526,21 @@
 
       /* Settings Panel */
       .settings-panel {
-        display: flex;
+        display: none;
         flex-direction: column;
         gap: 6px;
         margin-bottom: 6px;
         opacity: 0;
-        visibility: hidden;
         transform: translateY(8px);
-        transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s ease;
         pointer-events: none;
       }
 
       .settings-panel.visible {
+        display: flex;
         opacity: 1;
-        visibility: visible;
         transform: translateY(0);
         pointer-events: auto;
+        animation: fadeIn 0.2s ease;
       }
 
       .settings-row {
@@ -699,6 +698,17 @@
             </button>
           </div>
         </div>
+        <div class="settings-row">
+          <span class="row-label">Cursor</span>
+          <div class="row-buttons">
+            <button class="setting-opt active" data-type="showCursor" data-value="true">
+              On
+            </button>
+            <button class="setting-opt" data-type="showCursor" data-value="false">
+              Off
+            </button>
+          </div>
+        </div>
       </div>
 
       <div class="action-buttons" id="actionButtons">
@@ -849,7 +859,7 @@
       let isSystemAudioEnabled = true;
       let recordingState = "ready";
       let isSettingsOpen = false;
-      let currentSettings = { fps: 30, quality: "medium" };
+      let currentSettings = { fps: 30, quality: "medium", showCursor: true };
 
       const uploadBtnOriginalHtml = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -1027,7 +1037,8 @@
           const value = btn.dataset.value;
           const isActive =
             (type === "fps" && parseInt(value) === currentSettings.fps) ||
-            (type === "quality" && value === currentSettings.quality);
+            (type === "quality" && value === currentSettings.quality) ||
+            (type === "showCursor" && (value === "true") === currentSettings.showCursor);
           btn.classList.toggle("active", isActive);
         });
       }
@@ -1058,6 +1069,8 @@
           currentSettings.fps = parseInt(value);
         } else if (type === "quality") {
           currentSettings.quality = value;
+        } else if (type === "showCursor") {
+          currentSettings.showCursor = value === "true";
         }
 
         await ipcRenderer.invoke("set-settings", currentSettings);

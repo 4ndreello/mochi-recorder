@@ -187,7 +187,7 @@ class X11Capture extends BaseCapture {
       "-f",
       "x11grab",
       "-draw_mouse",
-      "0",
+      this.drawMouse ? "1" : "0",
       "-s",
       size,
       "-r",

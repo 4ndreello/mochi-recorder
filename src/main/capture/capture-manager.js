@@ -10,6 +10,7 @@ class CaptureManager {
     this.useSystemAudio = true;
     this.fps = 30;
     this.quality = "medium";
+    this.drawMouse = false;
   }
 
   async initialize() {
@@ -40,6 +41,10 @@ class CaptureManager {
     this.quality = quality;
   }
 
+  setDrawMouse(drawMouse) {
+    this.drawMouse = drawMouse;
+  }
+
   async startRecording(outputPath, region = null) {
     if (!this.captureInstance) {
       await this.initialize();
@@ -63,6 +68,10 @@ class CaptureManager {
 
     if (this.captureInstance.setQuality) {
       this.captureInstance.setQuality(this.quality);
+    }
+
+    if (this.captureInstance.setDrawMouse) {
+      this.captureInstance.setDrawMouse(this.drawMouse);
     }
 
     return await this.captureInstance.startRecording(outputPath);
