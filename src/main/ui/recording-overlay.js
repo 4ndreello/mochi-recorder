@@ -7,9 +7,7 @@ class RecordingOverlay {
     this.controlsWindow = null;
     this.region = null;
     this.controlsWidth = 400;
-    this.controlsHeight = 140;
-    this.expandedControlsWidth = 400;
-    this.expandedControlsHeight = 140;
+    this.controlsHeight = 200;
     this.positionSide = "top";
     this.controlsGap = 12;
   }
@@ -200,40 +198,6 @@ class RecordingOverlay {
 
   expandControls() {
     if (this.controlsWindow && !this.controlsWindow.isDestroyed()) {
-      const bounds = this.controlsWindow.getBounds();
-      const heightDiff = this.expandedControlsHeight - this.controlsHeight;
-
-      let newY = bounds.y;
-
-      // If positioned above or inside, expand upward
-      // If positioned below, expand downward
-      if (this.positionSide === "top" || this.positionSide === "inside") {
-        newY = bounds.y - heightDiff;
-      }
-      // Se 'bottom', newY permanece o mesmo (expande para baixo)
-
-      // Recalculate X to keep centered based on recording region
-      const display = screen.getDisplayMatching(this.region);
-      const screenBounds = display.bounds;
-
-      let newX =
-        this.region.x +
-        Math.floor(this.region.width / 2) -
-        Math.floor(this.expandedControlsWidth / 2);
-
-      // Horizontal adjustment - don't allow it to go outside side edges
-      const minX = screenBounds.x + 10;
-      const maxX =
-        screenBounds.x + screenBounds.width - this.expandedControlsWidth - 10;
-      newX = Math.max(minX, Math.min(newX, maxX));
-
-      this.controlsWindow.setBounds({
-        x: Math.round(newX),
-        y: Math.round(newY),
-        width: this.expandedControlsWidth,
-        height: this.expandedControlsHeight,
-      });
-
       this.controlsWindow.webContents.send(
         "controls-expanded",
         this.positionSide,
