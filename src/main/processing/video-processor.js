@@ -1,6 +1,7 @@
 const fs = require('fs').promises;
+const path = require('path');
 const { execSync } = require('child_process');
-const ZoomAnalyzer = require('./zoom-analyzer');
+const CursorVideoGenerator = require('./cursor-video-generator');
 const FFmpegManager = require('../utils/ffmpeg-manager');
 
 class VideoProcessor {
@@ -12,6 +13,7 @@ class VideoProcessor {
     this.screenWidth = 1920;
     this.screenHeight = 1080;
     this.ffmpegManager = new FFmpegManager("Processing");
+    this.enableCursor = true;
   }
 
   async loadMetadata() {
@@ -40,6 +42,25 @@ class VideoProcessor {
       console.warn('Error detecting video dimensions, using default:', error);
     }
     return { width: this.screenWidth, height: this.screenHeight };
+  }
+
+  async getVideoFps() {
+    try {
+      const output = execSync(
+        `ffprobe -v error -select_streams v:0 -show_entries stream=r_frame_rate -of json "${this.inputVideoPath}"`,
+        { encoding: 'utf-8' }
+      );
+      const data = JSON.parse(output);
+      if (data.streams && data.streams[0] && data.streams[0].r_frame_rate) {
+        const [num, den] = data.streams[0].r_frame_rate.split('/').map(Number);
+        const fps = den > 0 ? num / den : 30;
+        console.log(`[VideoProcessor] Detected video FPS: ${fps}`);
+        return fps;
+      }
+    } catch (error) {
+      console.warn('Error detecting video FPS, using default:', error);
+    }
+    return 30;
   }
 
   async hasAudioStream() {
@@ -77,14 +98,51 @@ class VideoProcessor {
       }
     }
 
-    const analyzer = new ZoomAnalyzer(this.metadata, this.screenWidth, this.screenHeight);
-    const zoomRegions = analyzer.analyze();
+    return await this.applyEffects();
+  }
 
-    if (zoomRegions.length === 0) {
+  async applyEffects() {
+    const hasAudio = await this.hasAudioStream();
+    const hasEvents = this.metadata.events && this.metadata.events.length > 0;
+
+    if (!this.enableCursor || !hasEvents) {
       return await this.copyVideo();
     }
 
-    return await this.applyZoom(zoomRegions);
+    const cursorVideoPath = this.inputVideoPath.replace('.mp4', '_cursor.mov');
+    
+    console.log('[VideoProcessor] Generating cursor overlay video at 120fps...');
+    const generator = new CursorVideoGenerator(
+      this.metadata,
+      this.screenWidth,
+      this.screenHeight
+    );
+    
+    await generator.generate(cursorVideoPath);
+
+    console.log('[VideoProcessor] Compositing final video (120fps cursor on base video)...');
+    const args = [
+      '-i', this.inputVideoPath,
+      '-i', cursorVideoPath,
+      '-filter_complex', '[0:v]fps=120[base];[base][1:v]overlay=0:0:format=auto[outv]',
+      '-map', '[outv]',
+      '-r', '60',
+      '-c:v', 'libx264',
+      '-preset', 'medium',
+      '-crf', '20'
+    ];
+
+    if (hasAudio) {
+      args.push('-map', '0:a', '-c:a', 'copy');
+    }
+
+    args.push('-y', this.outputPath);
+
+    await this.ffmpegManager.run(args);
+
+    await fs.unlink(cursorVideoPath).catch(() => {});
+    
+    return this.outputPath;
   }
 
   async copyVideo() {
@@ -104,43 +162,6 @@ class VideoProcessor {
     return this.ffmpegManager.run(args);
   }
 
-  async applyZoom(zoomRegions) {
-    const zoomExpression = this.buildZoomExpression(zoomRegions);
-    const hasAudio = await this.hasAudioStream();
-    
-    const args = [
-      '-i', this.inputVideoPath,
-      '-vf', `zoompan=z='${zoomExpression}':d=1:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'`,
-      '-c:v', 'libx264',
-      '-preset', 'medium',
-      '-crf', '23'
-    ];
-
-    if (hasAudio) {
-      args.push('-c:a', 'copy');
-    } else {
-      args.push('-an');
-    }
-
-    args.push('-y', this.outputPath);
-
-    return this.ffmpegManager.run(args);
-  }
-
-  buildZoomExpression(zoomRegions) {
-    if (zoomRegions.length === 0) {
-      return '1';
-    }
-
-    let expression = '1';
-    
-    for (let i = zoomRegions.length - 1; i >= 0; i--) {
-      const region = zoomRegions[i];
-      expression = `if(between(t,${region.startTime},${region.endTime}),${region.zoomFactor},${expression})`;
-    }
-    
-    return expression;
-  }
 }
 
 module.exports = VideoProcessor;

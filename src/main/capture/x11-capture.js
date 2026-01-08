@@ -186,6 +186,8 @@ class X11Capture extends BaseCapture {
       "1024",
       "-f",
       "x11grab",
+      "-draw_mouse",
+      "0",
       "-s",
       size,
       "-r",
