@@ -307,6 +307,12 @@ async function stopRecording() {
 
     const processor = new VideoProcessor(videoPath, metadataPath, outputPath);
 
+    processor.setProgressCallback(({ stage, percent }) => {
+      if (recordingOverlay) {
+        recordingOverlay.notifyProcessingProgress(stage, percent);
+      }
+    });
+
     await processor.process();
 
     console.log("[MAIN] Video processed successfully!");

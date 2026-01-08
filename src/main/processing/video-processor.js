@@ -14,6 +14,17 @@ class VideoProcessor {
     this.screenHeight = 1080;
     this.ffmpegManager = new FFmpegManager("Processing");
     this.enableCursor = true;
+    this.onProgress = null;
+  }
+
+  setProgressCallback(callback) {
+    this.onProgress = callback;
+  }
+
+  emitProgress(stage, percent) {
+    if (this.onProgress) {
+      this.onProgress({ stage, percent });
+    }
   }
 
   async loadMetadata() {
@@ -78,6 +89,8 @@ class VideoProcessor {
   }
 
   async process() {
+    this.emitProgress('preparing', 0);
+    
     try {
       await fs.access(this.inputVideoPath);
     } catch (error) {
@@ -85,6 +98,7 @@ class VideoProcessor {
     }
 
     await this.loadMetadata();
+    this.emitProgress('preparing', 5);
     
     try {
       await this.getVideoDimensions();
@@ -98,6 +112,7 @@ class VideoProcessor {
       }
     }
 
+    this.emitProgress('preparing', 10);
     return await this.applyEffects();
   }
 
@@ -106,21 +121,33 @@ class VideoProcessor {
     const hasEvents = this.metadata.events && this.metadata.events.length > 0;
 
     if (!this.enableCursor || !hasEvents) {
-      return await this.copyVideo();
+      this.emitProgress('saving', 50);
+      const result = await this.copyVideo();
+      this.emitProgress('saving', 100);
+      return result;
     }
 
     const cursorVideoPath = this.inputVideoPath.replace('.mp4', '_cursor.mov');
     
+    this.emitProgress('rendering', 10);
     console.log('[VideoProcessor] Generating cursor overlay video at 120fps...');
+    
     const generator = new CursorVideoGenerator(
       this.metadata,
       this.screenWidth,
       this.screenHeight
     );
     
+    generator.setProgressCallback((cursorPercent) => {
+      const overallPercent = 10 + Math.floor(cursorPercent * 0.5);
+      this.emitProgress('rendering', overallPercent);
+    });
+    
     await generator.generate(cursorVideoPath);
 
+    this.emitProgress('compositing', 60);
     console.log('[VideoProcessor] Compositing final video (120fps cursor on base video)...');
+    
     const args = [
       '-i', this.inputVideoPath,
       '-i', cursorVideoPath,
@@ -138,10 +165,13 @@ class VideoProcessor {
 
     args.push('-y', this.outputPath);
 
+    this.emitProgress('compositing', 70);
     await this.ffmpegManager.run(args);
+    this.emitProgress('compositing', 95);
 
     await fs.unlink(cursorVideoPath).catch(() => {});
     
+    this.emitProgress('done', 100);
     return this.outputPath;
   }
 

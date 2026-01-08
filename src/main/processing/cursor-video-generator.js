@@ -20,6 +20,11 @@ class CursorVideoGenerator {
     
     this.motionBlurEnabled = true;
     this.motionBlurSamples = MOTION_BLUR_SAMPLES;
+    this.onProgress = null;
+  }
+
+  setProgressCallback(callback) {
+    this.onProgress = callback;
   }
 
   getEvents() {
@@ -144,7 +149,6 @@ class CursorVideoGenerator {
     return { active: false };
   }
 
-  // Find the exact event position at or just before timeMs (no interpolation)
   findExactPosition(events, timeMs) {
     if (events.length === 0) return { x: 0, y: 0 };
     
@@ -314,6 +318,8 @@ class CursorVideoGenerator {
       });
 
       let frameCount = 0;
+      let lastProgressReport = 0;
+      
       const writeNextFrame = () => {
         if (frameCount >= totalFrames) {
           ffmpeg.stdin.end();
@@ -338,6 +344,12 @@ class CursorVideoGenerator {
         const canWrite = ffmpeg.stdin.write(buffer);
         
         frameCount++;
+
+        const progressPercent = Math.floor((frameCount / totalFrames) * 100);
+        if (this.onProgress && progressPercent !== lastProgressReport) {
+          lastProgressReport = progressPercent;
+          this.onProgress(progressPercent);
+        }
 
         if (canWrite) {
           setImmediate(writeNextFrame);

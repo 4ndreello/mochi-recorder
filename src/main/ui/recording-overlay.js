@@ -12,10 +12,6 @@ class RecordingOverlay {
     this.controlsGap = 12;
   }
 
-  /**
-   * Calculates the ideal position for the controls window
-   * Priority: Above -> Below -> Inside the region
-   */
   calculateControlsPosition(region, width, height) {
     const display = screen.getDisplayMatching(region);
     const screenBounds = display.bounds;
@@ -24,21 +20,16 @@ class RecordingOverlay {
     let y = region.y - height - this.controlsGap;
     let side = "top";
 
-    // Check if it's going out the top
     if (y < screenBounds.y) {
-      // Try to position below the region
       y = region.y + region.height + this.controlsGap;
       side = "bottom";
 
-      // Check if it's going out the bottom
       if (y + height > screenBounds.y + screenBounds.height) {
-        // Position inside the region (at internal footer)
         y = region.y + region.height - height - this.controlsGap;
         side = "inside";
       }
     }
 
-    // Horizontal adjustment - don't allow it to go outside side edges
     const minX = screenBounds.x + 10;
     const maxX = screenBounds.x + screenBounds.width - width - 10;
     x = Math.max(minX, Math.min(x, maxX));
@@ -126,7 +117,6 @@ class RecordingOverlay {
       }, 50);
     });
 
-    // Calculate smart position for controls
     const controlsPos = this.calculateControlsPosition(
       region,
       this.controlsWidth,
@@ -168,7 +158,6 @@ class RecordingOverlay {
     this.controlsWindow.setAlwaysOnTop(true, "screen-saver");
 
     this.controlsWindow.webContents.on("did-finish-load", () => {
-      // Inform renderer which side is positioned to adjust internal layout
       this.controlsWindow.webContents.send("position-side", this.positionSide);
 
       if (this.onReadyCallback) {
@@ -224,6 +213,15 @@ class RecordingOverlay {
       this.controlsWindow.webContents.send("recording-started");
     }
     this.setRecordingState("recording");
+  }
+
+  notifyProcessingProgress(stage, percent) {
+    if (this.controlsWindow && !this.controlsWindow.isDestroyed()) {
+      this.controlsWindow.webContents.send("processing-progress", {
+        stage,
+        percent,
+      });
+    }
   }
 
   notifyRecordingFinished(videoPath) {

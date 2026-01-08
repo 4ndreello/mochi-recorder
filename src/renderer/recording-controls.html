@@ -529,7 +529,7 @@
         display: flex;
         flex-direction: column;
         gap: 6px;
-        margin-bottom: 8px;
+        margin-bottom: 6px;
         opacity: 0;
         visibility: hidden;
         transform: translateY(8px);
@@ -600,16 +600,29 @@
       }
 
       .processing-status {
+        background: rgba(25, 25, 25, 0.75);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        padding: 6px 12px;
+        border-radius: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
         display: none;
         align-items: center;
         gap: 6px;
-        color: rgba(255, 255, 255, 0.6);
+        color: rgba(255, 255, 255, 0.95);
         font-size: 10px;
-        margin-bottom: -80px;
+        
+        margin-bottom: 6px;
       }
 
       .processing-status.visible {
         display: flex;
+      }
+
+      .position-bottom .processing-status {
+        margin-bottom: 0;
+        margin-top: 6px;
       }
 
       .spinner {
@@ -653,11 +666,6 @@
   </head>
   <body>
     <div class="container" id="container">
-      <div class="processing-status" id="processingStatus">
-        <div class="spinner"></div>
-        <span>Processing...</span>
-      </div>
-
       <div class="settings-panel" id="settingsPanel">
         <div class="settings-row">
           <span class="row-label">Quality</span>
@@ -728,6 +736,11 @@
       </div>
 
       <div class="error-msg" id="errorMsg"></div>
+
+      <div class="processing-status" id="processingStatus">
+        <div class="spinner"></div>
+        <span>Processing...</span>
+      </div>
 
       <div class="controls-bar">
         <div class="drag-handle" id="dragHandle">
@@ -1139,6 +1152,11 @@
 
         processingStatus.classList.add("visible");
 
+        // Enable drag immediately when stopping
+        const controlsBar = document.querySelector(".controls-bar");
+        controlsBar.classList.add("draggable");
+        ipcRenderer.send("enable-window-drag");
+
         ipcRenderer.send("expand-controls");
         ipcRenderer.send("stop-recording-clicked");
       });
@@ -1153,10 +1171,6 @@
         actionButtons.classList.add("visible");
         closeButton.classList.add("visible");
         stopButton.style.display = "none";
-
-        const controlsBar = document.querySelector(".controls-bar");
-        controlsBar.classList.add("draggable");
-        ipcRenderer.send("enable-window-drag");
       });
 
       ipcRenderer.on("recording-error", (event, data) => {
@@ -1264,6 +1278,35 @@
 
       ipcRenderer.on("upload-progress", (event, progress) => {
         topProgressFill.style.width = progress + "%";
+      });
+
+      // Processing progress handler
+      ipcRenderer.on("processing-progress", (event, data) => {
+        const { stage, percent } = data;
+        
+        // Show progress bar
+        topProgress.classList.add("visible");
+        topProgressFill.style.width = percent + "%";
+        
+        // Update status text based on stage
+        const statusSpan = processingStatus.querySelector("span");
+        switch (stage) {
+          case "preparing":
+            statusSpan.textContent = "Preparing...";
+            break;
+          case "rendering":
+            statusSpan.textContent = "Rendering cursor...";
+            break;
+          case "compositing":
+            statusSpan.textContent = "Compositing video...";
+            break;
+          case "done":
+            statusSpan.textContent = "Done!";
+            topProgress.classList.remove("visible");
+            break;
+          default:
+            statusSpan.textContent = "Processing...";
+        }
       });
 
       closeButton.addEventListener("click", closeOverlay);
