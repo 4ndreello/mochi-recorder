@@ -1,8 +1,7 @@
-const { spawn } = require('child_process');
 const fs = require('fs').promises;
-const path = require('path');
-const ZoomAnalyzer = require('./zoom-analyzer');
 const { execSync } = require('child_process');
+const ZoomAnalyzer = require('./zoom-analyzer');
+const FFmpegManager = require('../utils/ffmpeg-manager');
 
 class VideoProcessor {
   constructor(inputVideoPath, metadataPath, outputPath) {
@@ -12,6 +11,7 @@ class VideoProcessor {
     this.metadata = null;
     this.screenWidth = 1920;
     this.screenHeight = 1080;
+    this.ffmpegManager = new FFmpegManager("Processing");
   }
 
   async loadMetadata() {
@@ -57,8 +57,6 @@ class VideoProcessor {
   }
 
   async process() {
-    // Check if video file exists and is valid
-    const fs = require('fs').promises;
     try {
       await fs.access(this.inputVideoPath);
     } catch (error) {
@@ -67,14 +65,11 @@ class VideoProcessor {
 
     await this.loadMetadata();
     
-    // Try to get dimensions, but continue even if it fails
     try {
       await this.getVideoDimensions();
     } catch (error) {
       console.warn('Could not get video dimensions, using default values');
-      // If can't get, use metadata values or default
       if (this.metadata && this.metadata.events && this.metadata.events.length > 0) {
-        // Try to infer dimensions from events
         const maxX = Math.max(...this.metadata.events.map(e => e.x || 0));
         const maxY = Math.max(...this.metadata.events.map(e => e.y || 0));
         this.screenWidth = Math.max(maxX + 100, 1920);
@@ -86,160 +81,59 @@ class VideoProcessor {
     const zoomRegions = analyzer.analyze();
 
     if (zoomRegions.length === 0) {
-      // No clicks, just copy video
       return await this.copyVideo();
     }
 
-    // Processar com zoom
     return await this.applyZoom(zoomRegions);
   }
 
   async copyVideo() {
-    return new Promise(async (resolve, reject) => {
-      const hasAudio = await this.hasAudioStream();
-      
-      const args = [
-        '-i', this.inputVideoPath,
-        '-c', 'copy'
-      ];
+    const hasAudio = await this.hasAudioStream();
+    
+    const args = [
+      '-i', this.inputVideoPath,
+      '-c', 'copy'
+    ];
 
-      // If no audio stream, explicitly disable audio
-      if (!hasAudio) {
-        args.push('-an');
-      }
+    if (!hasAudio) {
+      args.push('-an');
+    }
 
-      args.push('-y', this.outputPath);
+    args.push('-y', this.outputPath);
 
-      const ffmpeg = spawn('ffmpeg', args);
-
-      ffmpeg.stderr.on('data', (data) => {
-        const output = data.toString();
-        if (output.includes('error') || output.includes('Error')) {
-          console.error('FFmpeg error:', output);
-        }
-      });
-
-      ffmpeg.on('close', (code) => {
-        if (code === 0) {
-          resolve();
-        } else {
-          reject(new Error(`FFmpeg failed with code ${code}`));
-        }
-      });
-
-      ffmpeg.on('error', (error) => {
-        reject(error);
-      });
-    });
+    return this.ffmpegManager.run(args);
   }
 
   async applyZoom(zoomRegions) {
-    return new Promise(async (resolve, reject) => {
-      // Strategy: use zoompan to apply smooth zoom at click moments
-      // For MVP, we'll apply zoom to each click region
-      
-      // Build complex filter
-      let filterComplex = '';
-      const segments = [];
-      
-      // Split video into segments: normal -> zoom -> normal
-      let currentTime = 0;
-      
-      zoomRegions.forEach((region, index) => {
-        // Segment before zoom (if exists)
-        if (region.startTime > currentTime) {
-          segments.push({
-            start: currentTime,
-            end: region.startTime,
-            type: 'normal'
-          });
-        }
-        
-        // Segment with zoom
-        segments.push({
-          start: region.startTime,
-          end: region.endTime,
-          type: 'zoom',
-          region: region
-        });
-        
-        currentTime = region.endTime;
-      });
-      
-      // Last segment (if exists)
-      if (this.metadata.duration / 1000 > currentTime) {
-        segments.push({
-          start: currentTime,
-          end: this.metadata.duration / 1000,
-          type: 'normal'
-        });
-      }
+    const zoomExpression = this.buildZoomExpression(zoomRegions);
+    const hasAudio = await this.hasAudioStream();
+    
+    const args = [
+      '-i', this.inputVideoPath,
+      '-vf', `zoompan=z='${zoomExpression}':d=1:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'`,
+      '-c:v', 'libx264',
+      '-preset', 'medium',
+      '-crf', '23'
+    ];
 
-      // For simplified MVP, we'll use a zoompan filter that detects clicks
-      // Simpler version: apply zoompan with time-based expression
-      const zoomExpression = this.buildZoomExpression(zoomRegions);
-      
-      // Check if input has audio
-      const hasAudio = await this.hasAudioStream();
-      
-      const args = [
-        '-i', this.inputVideoPath,
-        '-vf', `zoompan=z='${zoomExpression}':d=1:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'`,
-        '-c:v', 'libx264',
-        '-preset', 'medium',
-        '-crf', '23'
-      ];
+    if (hasAudio) {
+      args.push('-c:a', 'copy');
+    } else {
+      args.push('-an');
+    }
 
-      // Only copy audio if it exists
-      if (hasAudio) {
-        args.push('-c:a', 'copy');
-      } else {
-        args.push('-an');
-      }
+    args.push('-y', this.outputPath);
 
-      args.push('-y', this.outputPath);
-
-      const ffmpeg = spawn('ffmpeg', args);
-
-      let errorOutput = '';
-      
-      ffmpeg.stderr.on('data', (data) => {
-        const output = data.toString();
-        errorOutput += output;
-        // FFmpeg writes progress to stderr
-        if (output.includes('time=')) {
-          // Parse progress if needed
-        }
-      });
-
-      ffmpeg.on('close', (code) => {
-        if (code === 0) {
-          console.log('Video processed successfully');
-          resolve();
-        } else {
-          console.error('FFmpeg error output:', errorOutput);
-          reject(new Error(`FFmpeg failed with code ${code}`));
-        }
-      });
-
-      ffmpeg.on('error', (error) => {
-        reject(error);
-      });
-    });
+    return this.ffmpegManager.run(args);
   }
 
   buildZoomExpression(zoomRegions) {
-    // Build expression for zoompan
-    // Format: if(condition, value_if_true, value_if_false)
-    // For multiple clicks, use nested expression
-    
     if (zoomRegions.length === 0) {
       return '1';
     }
 
     let expression = '1';
     
-    // Build reverse expression (from last to first)
     for (let i = zoomRegions.length - 1; i >= 0; i--) {
       const region = zoomRegions[i];
       expression = `if(between(t,${region.startTime},${region.endTime}),${region.zoomFactor},${expression})`;
@@ -250,4 +144,3 @@ class VideoProcessor {
 }
 
 module.exports = VideoProcessor;
-

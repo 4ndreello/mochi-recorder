@@ -36,7 +36,7 @@ class WaylandCapture extends BaseCapture {
 
   async buildVideoArgs() {
     const source = await this.getVideoSource();
-    return ["-f", "pipewire", "-i", source, "-r", String(this.fps)];
+    return ["-thread_queue_size", "1024", "-f", "pipewire", "-i", source, "-r", String(this.fps)];
   }
 }
 
