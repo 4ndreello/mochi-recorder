@@ -1,6 +1,9 @@
-const { createCanvas } = require('canvas');
+const { createCanvas, loadImage } = require('canvas');
 const { spawn } = require('child_process');
 const path = require('path');
+const fs = require('fs');
+
+const CURSOR_SVG_PATH = path.join(__dirname, '../../renderer/assets/apple-cursor.svg');
 
 const TARGET_FPS = 120;
 const MOTION_BLUR_SAMPLES = 8;
@@ -13,7 +16,7 @@ class CursorVideoGenerator {
     this.width = width;
     this.height = height;
     this.fps = TARGET_FPS;
-    this.cursorSize = 20;
+    this.cursorSize = this.calculateCursorSize(width, height);
     this.cursorColor = 'white';
     this.cursorShadowColor = 'rgba(0,0,0,0.3)';
     this.clickRippleColor = 'rgba(255,255,0,0.6)';
@@ -21,6 +24,26 @@ class CursorVideoGenerator {
     this.motionBlurEnabled = true;
     this.motionBlurSamples = MOTION_BLUR_SAMPLES;
     this.onProgress = null;
+    this.cursorImage = null;
+  }
+
+  calculateCursorSize(width, height) {
+    const baseSize = Math.max(width, height);
+    const cursorSize = Math.round(baseSize / 30);
+    return Math.max(40, Math.min(cursorSize, 120));
+  }
+
+  async loadCursorImage() {
+    if (!this.cursorImage) {
+      const svgContent = fs.readFileSync(CURSOR_SVG_PATH, 'utf8');
+      const targetSize = this.cursorSize * 4;
+      const scaledSvg = svgContent
+        .replace(/width="256"/, `width="${targetSize}"`)
+        .replace(/height="256"/, `height="${targetSize}"`);
+      const svgBuffer = Buffer.from(scaledSvg);
+      this.cursorImage = await loadImage(svgBuffer);
+    }
+    return this.cursorImage;
   }
 
   setProgressCallback(callback) {
@@ -46,6 +69,31 @@ class CursorVideoGenerator {
   getVideoStartOffset() {
     const session = this.getSessionInfo();
     return session.videoStartOffset || 0;
+  }
+
+  smoothEvents(events, windowSize = 5) {
+    if (events.length < windowSize) return events;
+    
+    const smoothed = [];
+    for (let i = 0; i < events.length; i++) {
+      const start = Math.max(0, i - Math.floor(windowSize / 2));
+      const end = Math.min(events.length, i + Math.ceil(windowSize / 2));
+      
+      let sumX = 0, sumY = 0, count = 0;
+      for (let j = start; j < end; j++) {
+        const weight = 1 - Math.abs(j - i) / windowSize;
+        sumX += events[j].x * weight;
+        sumY += events[j].y * weight;
+        count += weight;
+      }
+      
+      smoothed.push({
+        ...events[i],
+        x: sumX / count,
+        y: sumY / count
+      });
+    }
+    return smoothed;
   }
 
   interpolatePosition(events, timeMs) {
@@ -177,29 +225,23 @@ class CursorVideoGenerator {
     
     const size = this.cursorSize * scale;
     
-    if (alpha >= 0.5) {
-      ctx.shadowColor = this.cursorShadowColor;
-      ctx.shadowBlur = 6 * alpha;
-      ctx.shadowOffsetX = 2;
-      ctx.shadowOffsetY = 2;
+    if (this.cursorImage) {
+      // Draw the Apple cursor PNG
+      ctx.drawImage(this.cursorImage, x, y, size, size);
+    } else {
+      // Fallback: draw a simple arrow if image not loaded
+      ctx.fillStyle = this.cursorColor;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x, y + size);
+      ctx.lineTo(x + size * 0.4, y + size * 0.75);
+      ctx.lineTo(x + size * 0.55, y + size * 1.1);
+      ctx.lineTo(x + size * 0.75, y + size * 1.05);
+      ctx.lineTo(x + size * 0.55, y + size * 0.7);
+      ctx.lineTo(x + size * 0.85, y + size * 0.7);
+      ctx.closePath();
+      ctx.fill();
     }
-
-    ctx.fillStyle = this.cursorColor;
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.lineTo(x, y + size);
-    ctx.lineTo(x + size * 0.4, y + size * 0.75);
-    ctx.lineTo(x + size * 0.55, y + size * 1.1);
-    ctx.lineTo(x + size * 0.75, y + size * 1.05);
-    ctx.lineTo(x + size * 0.55, y + size * 0.7);
-    ctx.lineTo(x + size * 0.85, y + size * 0.7);
-    ctx.closePath();
-    ctx.fill();
-
-    ctx.shadowBlur = 0;
-    ctx.strokeStyle = `rgba(0,0,0,${alpha * 0.8})`;
-    ctx.lineWidth = 1;
-    ctx.stroke();
     
     ctx.restore();
   }
@@ -218,7 +260,7 @@ class CursorVideoGenerator {
     const positions = [];
     
     for (let i = 0; i < samples; i++) {
-      const sampleTime = currentTimeMs - (frameInterval * 0.5) + (subFrameInterval * i);
+      const sampleTime = currentTimeMs - (frameInterval * 0.8) + (subFrameInterval * i);
       const pos = this.interpolatePositionSpline(moves, sampleTime);
       positions.push({
         x: pos.x - region.x,
@@ -232,12 +274,13 @@ class CursorVideoGenerator {
       return sum + Math.sqrt(Math.pow(pos.x - prev.x, 2) + Math.pow(pos.y - prev.y, 2));
     }, 0);
     
-    const isMovingFast = totalDistance > 5;
+    const isMovingFast = totalDistance > 3;
     
     if (isMovingFast) {
       for (let i = 0; i < samples - 1; i++) {
-        const alpha = (i + 1) / samples * 0.15;
-        const scale = 0.8 + (i / samples) * 0.2;
+        const progress = (i + 1) / samples;
+        const alpha = progress * 0.25;
+        const scale = 0.7 + progress * 0.3;
         this.drawCursor(ctx, positions[i].x, positions[i].y, alpha, scale);
       }
     }
@@ -263,11 +306,14 @@ class CursorVideoGenerator {
   }
 
   async generate(outputPath) {
+    await this.loadCursorImage();
+    
     const session = this.getSessionInfo();
     const duration = session.duration || 0;
     const region = this.getRegion();
     const events = this.getEvents();
-    const moves = events.filter(e => e.type === 'move' || e.type === 'click');
+    const rawMoves = events.filter(e => e.type === 'move' || e.type === 'click');
+    const moves = this.smoothEvents(rawMoves, 7);
     const clicks = events.filter(e => e.type === 'click');
     const videoStartOffset = this.getVideoStartOffset();
 
@@ -338,7 +384,7 @@ class CursorVideoGenerator {
           this.drawClickRipple(ctx, clickX, clickY, clickState.progress);
         }
 
-        this.drawSimpleCursor(ctx, moves, region, eventTimeMs);
+        this.drawMotionBlurredCursor(ctx, moves, region, eventTimeMs, frameInterval);
 
         const buffer = canvas.toBuffer('raw');
         const canWrite = ffmpeg.stdin.write(buffer);
