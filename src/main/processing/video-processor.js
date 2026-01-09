@@ -3,6 +3,7 @@ const path = require('path');
 const { execSync } = require('child_process');
 const CursorVideoGenerator = require('./cursor-video-generator');
 const FFmpegManager = require('../utils/ffmpeg-manager');
+const BinaryResolver = require('../utils/binary-resolver');
 
 class VideoProcessor {
   constructor(inputVideoPath, metadataPath, outputPath) {
@@ -39,51 +40,63 @@ class VideoProcessor {
 
   async getVideoDimensions() {
     try {
+      console.log('[VideoProcessor] Resolving ffprobe path...');
+      const ffprobePath = await BinaryResolver.getFFprobePath();
+      console.log(`[VideoProcessor] Using ffprobe: ${ffprobePath}`);
       const output = execSync(
-        `ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of json "${this.inputVideoPath}"`,
+        `"${ffprobePath}" -v error -select_streams v:0 -show_entries stream=width,height -of json "${this.inputVideoPath}"`,
         { encoding: 'utf-8' }
       );
       const data = JSON.parse(output);
       if (data.streams && data.streams[0]) {
         this.screenWidth = data.streams[0].width;
         this.screenHeight = data.streams[0].height;
+        console.log(`[VideoProcessor] Video dimensions: ${this.screenWidth}x${this.screenHeight}`);
         return { width: this.screenWidth, height: this.screenHeight };
       }
     } catch (error) {
-      console.warn('Error detecting video dimensions, using default:', error);
+      console.warn('[VideoProcessor] Error detecting video dimensions, using default:', error);
     }
     return { width: this.screenWidth, height: this.screenHeight };
   }
 
   async getVideoFps() {
     try {
+      console.log('[VideoProcessor] Resolving ffprobe path for FPS detection...');
+      const ffprobePath = await BinaryResolver.getFFprobePath();
+      console.log(`[VideoProcessor] Using ffprobe: ${ffprobePath}`);
       const output = execSync(
-        `ffprobe -v error -select_streams v:0 -show_entries stream=r_frame_rate -of json "${this.inputVideoPath}"`,
+        `"${ffprobePath}" -v error -select_streams v:0 -show_entries stream=r_frame_rate -of json "${this.inputVideoPath}"`,
         { encoding: 'utf-8' }
       );
       const data = JSON.parse(output);
       if (data.streams && data.streams[0] && data.streams[0].r_frame_rate) {
         const [num, den] = data.streams[0].r_frame_rate.split('/').map(Number);
         const fps = den > 0 ? num / den : 30;
-        console.log(`[VideoProcessor] Detected video FPS: ${fps}`);
+        console.log(`[VideoProcessor] ✓ Detected video FPS: ${fps}`);
         return fps;
       }
     } catch (error) {
-      console.warn('Error detecting video FPS, using default:', error);
+      console.warn('[VideoProcessor] Error detecting video FPS, using default:', error);
     }
     return 30;
   }
 
   async hasAudioStream() {
     try {
+      console.log('[VideoProcessor] Resolving ffprobe path for audio stream detection...');
+      const ffprobePath = await BinaryResolver.getFFprobePath();
+      console.log(`[VideoProcessor] Using ffprobe: ${ffprobePath}`);
       const output = execSync(
-        `ffprobe -v error -select_streams a:0 -show_entries stream=codec_type -of json "${this.inputVideoPath}"`,
+        `"${ffprobePath}" -v error -select_streams a:0 -show_entries stream=codec_type -of json "${this.inputVideoPath}"`,
         { encoding: 'utf-8' }
       );
       const data = JSON.parse(output);
-      return data.streams && data.streams.length > 0;
+      const hasAudio = data.streams && data.streams.length > 0;
+      console.log(`[VideoProcessor] ✓ Audio stream check: ${hasAudio}`);
+      return hasAudio;
     } catch (error) {
-      console.warn('Error detecting audio stream:', error);
+      console.warn('[VideoProcessor] Error detecting audio stream:', error);
       return false;
     }
   }

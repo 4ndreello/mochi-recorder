@@ -9,13 +9,17 @@ const AreaSelector = require("./ui/area-selector");
 const RecordingOverlay = require("./ui/recording-overlay");
 const PostRecordingDialog = require("./ui/post-recording-dialog");
 const UpdateManager = require("./ui/update-manager");
+const FFmpegDownloadWindow = require("./ui/ffmpeg-download-window");
 const SettingsManager = require("./utils/settings-manager");
+const FFmpegDownloader = require("./utils/ffmpeg-downloader");
+const BinaryResolver = require("./utils/binary-resolver");
 
 let trayManager;
 let areaSelector;
 let recordingOverlay;
 let postRecordingDialog;
 let updateManager;
+let ffmpegDownloadWindow;
 let captureManager;
 let mouseTracker;
 let eventRecorder;
@@ -71,7 +75,8 @@ function createTray() {
   postRecordingDialog = new PostRecordingDialog();
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  console.log("[MAIN] ===== App Initialization =====");
   const iconPath = path.join(__dirname, "../renderer/assets/icon.png");
   const { nativeImage } = require("electron");
   const icon = nativeImage.createFromPath(iconPath);
@@ -88,11 +93,37 @@ app.whenReady().then(() => {
   useMicrophone = savedSettings.useMicrophone;
   useSystemAudio = savedSettings.useSystemAudio;
 
+  // Always create tray first
   createTray();
 
-  // Initialize UpdateManager and start periodic check
-  updateManager = new UpdateManager();
-  updateManager.startPeriodicCheck(30); // Check every 30 minutes
+  // Check FFmpeg installation
+  console.log("[MAIN] Checking FFmpeg installation...");
+  let ffmpegReady = false;
+
+  try {
+    const ffmpegPath = await BinaryResolver.getFFmpegPath();
+    console.log(`[MAIN] ✓ FFmpeg found: ${ffmpegPath}`);
+
+    const ffprobePath = await BinaryResolver.getFFprobePath();
+    console.log(`[MAIN] ✓ FFprobe found: ${ffprobePath}`);
+
+    ffmpegReady = true;
+  } catch (err) {
+    console.error(`[MAIN] ✗ FFmpeg check failed: ${err.message}`);
+    console.log("[MAIN] FFmpeg not found. Showing download window to user...");
+
+    // Create and show FFmpeg download window
+    ffmpegDownloadWindow = new FFmpegDownloadWindow();
+    ffmpegDownloadWindow.create();
+    ffmpegDownloadWindow.show();
+  }
+
+  // Only initialize UpdateManager if FFmpeg is ready
+  // This prevents update check during first-time setup
+  if (ffmpegReady) {
+    updateManager = new UpdateManager();
+    updateManager.startPeriodicCheck(30); // Check every 30 minutes
+  }
 
   app.on("activate", () => {
     if (!trayManager) {
@@ -137,6 +168,12 @@ ipcMain.on("rerecord-clicked", () => {
 });
 
 function showAreaSelector() {
+  // Ignore if FFmpeg is being downloaded
+  if (ffmpegDownloadWindow && ffmpegDownloadWindow.isVisible()) {
+    console.log("[MAIN] FFmpeg download in progress, ignoring click");
+    return;
+  }
+
   if (
     areaSelector ||
     recordingOverlay ||
@@ -395,4 +432,199 @@ ipcMain.handle("set-settings", (event, settings) => {
   settingsManager.save({ recordingSettings, useMicrophone, useSystemAudio });
   console.log("[MAIN] Settings updated:", recordingSettings);
   return recordingSettings;
+});
+
+// FFmpeg Downloader Handlers
+ipcMain.handle("ffmpeg-check-installation", async () => {
+  try {
+    console.log("[FFmpeg] Checking installation from renderer...");
+
+    const isDownloaded = BinaryResolver.isDownloaded();
+    if (isDownloaded) {
+      console.log("[FFmpeg] Found downloaded FFmpeg");
+      return { installed: true, source: "downloaded" };
+    }
+
+    const systemPath = BinaryResolver.getSystemPath("ffmpeg");
+    if (systemPath && BinaryResolver.testBinary(systemPath)) {
+      console.log("[FFmpeg] Found system FFmpeg");
+      return { installed: true, source: "system" };
+    }
+
+    console.log("[FFmpeg] No FFmpeg found, download needed");
+    return { installed: false, source: null };
+  } catch (err) {
+    console.error("[FFmpeg] Check installation error:", err);
+    return { installed: false, source: null };
+  }
+});
+
+ipcMain.handle("ffmpeg-start-download", async (event) => {
+  try {
+    const mainWindow = BrowserWindow.getAllWindows()[0];
+
+    const onProgress = (progress) => {
+      mainWindow?.webContents.send("ffmpeg-download-progress", {
+        downloaded: progress.downloaded,
+        total: progress.total,
+        percentage: progress.percentage,
+        speed: progress.speed
+      });
+    };
+
+    mainWindow?.webContents.send("ffmpeg-download-status", "downloading");
+
+    await FFmpegDownloader.downloadFFmpeg(onProgress);
+
+    mainWindow?.webContents.send("ffmpeg-download-status", "extracting");
+    const binPath = FFmpegDownloader.getBinPath();
+    await FFmpegDownloader.extractTarball(
+      path.join(require("os").tmpdir(), "mochi-ffmpeg-download.tar.xz"),
+      binPath
+    );
+
+    mainWindow?.webContents.send("ffmpeg-download-status", "verifying");
+    const ffmpegPath = path.join(binPath, "ffmpeg");
+    const ffprobePath = path.join(binPath, "ffprobe");
+
+    // Make executable
+    const fs = require("fs");
+    fs.chmodSync(ffmpegPath, 0o755);
+    fs.chmodSync(ffprobePath, 0o755);
+
+    // Verify
+    await FFmpegDownloader.verifyChecksum(ffmpegPath);
+    await FFmpegDownloader.verifyChecksum(ffprobePath);
+
+    // Save version info
+    FFmpegDownloader.saveVersion();
+
+    mainWindow?.webContents.send("ffmpeg-download-status", "completed");
+    console.log("[FFmpeg] Download completed successfully");
+
+    // Clear cache so it detects the new binary
+    BinaryResolver.cachedPaths = {};
+
+    // Signal completion to BinaryResolver
+    mainWindow?.webContents.send("ffmpeg-download-complete");
+
+    return { success: true };
+  } catch (err) {
+    console.error("[FFmpeg] Download error:", err);
+    const mainWindow = BrowserWindow.getAllWindows()[0];
+    mainWindow?.webContents.send("ffmpeg-download-status", "error");
+    mainWindow?.webContents.send("ffmpeg-download-error", err.message);
+    return { success: false, error: err.message };
+  }
+});
+
+// Handle FFmpeg download from the download window
+ipcMain.handle("ffmpeg-start-download-from-window", async (event) => {
+  try {
+    const onProgress = (progress) => {
+      ffmpegDownloadWindow?.window?.webContents.send("ffmpeg-download-progress", {
+        downloaded: progress.downloaded,
+        total: progress.total,
+        percentage: progress.percentage,
+        speed: progress.speed
+      });
+    };
+
+    ffmpegDownloadWindow?.window?.webContents.send("ffmpeg-download-status", "downloading");
+
+    await FFmpegDownloader.downloadFFmpeg(onProgress);
+
+    ffmpegDownloadWindow?.window?.webContents.send("ffmpeg-download-status", "extracting");
+    const binPath = FFmpegDownloader.getBinPath();
+    await FFmpegDownloader.extractTarball(
+      path.join(require("os").tmpdir(), "mochi-ffmpeg-download.tar.xz"),
+      binPath
+    );
+
+    ffmpegDownloadWindow?.window?.webContents.send("ffmpeg-download-status", "verifying");
+    const ffmpegPath = path.join(binPath, "ffmpeg");
+    const ffprobePath = path.join(binPath, "ffprobe");
+
+    // Make executable
+    const fs = require("fs");
+    fs.chmodSync(ffmpegPath, 0o755);
+    fs.chmodSync(ffprobePath, 0o755);
+
+    // Verify
+    await FFmpegDownloader.verifyChecksum(ffmpegPath);
+    await FFmpegDownloader.verifyChecksum(ffprobePath);
+
+    // Save version info
+    FFmpegDownloader.saveVersion();
+
+    ffmpegDownloadWindow?.window?.webContents.send("ffmpeg-download-status", "completed");
+    console.log("[FFmpeg] Download from window completed successfully");
+
+    // Clear cache so it detects the new binary
+    BinaryResolver.cachedPaths = {};
+
+    // Close the download window
+    setTimeout(() => {
+      if (ffmpegDownloadWindow) {
+        ffmpegDownloadWindow.close();
+        ffmpegDownloadWindow = null;
+      }
+    }, 1500);
+
+    return { success: true };
+  } catch (err) {
+    console.error("[FFmpeg] Download error from window:", err);
+    ffmpegDownloadWindow?.window?.webContents.send("ffmpeg-download-status", "error");
+    ffmpegDownloadWindow?.window?.webContents.send("ffmpeg-download-error", err.message);
+    return { success: false, error: err.message };
+  }
+});
+
+// Handle user clicking "Use System FFmpeg"
+ipcMain.on("ffmpeg-use-system", () => {
+  console.log("[MAIN] User chose to use system FFmpeg from download window");
+  if (ffmpegDownloadWindow) {
+    ffmpegDownloadWindow.close();
+    ffmpegDownloadWindow = null;
+  }
+});
+
+// Handle FFmpeg download window close (after successful download)
+ipcMain.on("ffmpeg-download-window-close", () => {
+  console.log("[MAIN] FFmpeg download completed, closing window");
+  if (ffmpegDownloadWindow) {
+    ffmpegDownloadWindow.close();
+    ffmpegDownloadWindow = null;
+  }
+
+  // Now start UpdateManager since FFmpeg is ready
+  if (!updateManager) {
+    updateManager = new UpdateManager();
+    updateManager.startPeriodicCheck(30);
+  }
+});
+
+ipcMain.handle("ffmpeg-cancel-download", () => {
+  // TODO: Implement cancellation if needed
+  console.log("[FFmpeg] Download cancellation requested");
+  return { success: true };
+});
+
+// Handle exit when FFmpeg is missing
+ipcMain.on("app-exit-ffmpeg-missing", () => {
+  console.log("[MAIN] User chose to exit due to missing FFmpeg");
+  console.log(
+    "[MAIN] Please install FFmpeg: sudo apt install ffmpeg (Ubuntu/Debian)"
+  );
+  app.quit();
+});
+
+// Get FFmpeg setup information
+ipcMain.handle("get-ffmpeg-info", () => {
+  return {
+    hasFFmpeg: BinaryResolver.getSystemPath("ffmpeg") !== null,
+    ffmpegPath: BinaryResolver.getSystemPath("ffmpeg"),
+    downloadUrl: BinaryResolver.getDownloadUrl(),
+    configPath: BinaryResolver.getBinPath()
+  };
 });

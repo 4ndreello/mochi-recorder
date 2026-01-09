@@ -48,7 +48,7 @@ test.describe('Mochi App Launch', () => {
     expect(appInfo.isPackaged).toBe(false); // Em dev mode
   });
 
-  test('should start without any visible windows (tray-only)', async () => {
+  test('should start without any visible windows (tray-only) or with FFmpeg download window', async () => {
     electronApp = await electron.launch({
       args: ['--no-sandbox', path.join(projectRoot, 'src/main/main.js')],
       env: { ...process.env, NODE_ENV: 'test' }
@@ -57,8 +57,9 @@ test.describe('Mochi App Launch', () => {
     // Aguarda um pouco para o app inicializar
     await new Promise(r => setTimeout(r, 500));
 
-    // Mochi inicia apenas com tray, sem janelas
+    // Mochi inicia apenas com tray (0 windows) OU com janela de download do FFmpeg (1 window)
+    // Se FFmpeg não estiver instalado no ambiente de teste, uma janela de setup aparece
     const windows = electronApp.windows();
-    expect(windows.length).toBe(0);
+    expect(windows.length).toBeLessThanOrEqual(1);
   });
 });

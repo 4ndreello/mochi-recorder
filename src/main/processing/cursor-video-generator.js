@@ -2,6 +2,7 @@ const { createCanvas, loadImage } = require('canvas');
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const BinaryResolver = require('../utils/binary-resolver');
 
 const CURSOR_SVG_PATH = path.join(__dirname, '../../renderer/assets/apple-cursor.svg');
 
@@ -332,9 +333,16 @@ class CursorVideoGenerator {
     const ctx = canvas.getContext('2d');
 
     const movPath = outputPath.replace('.webm', '.mov');
-    
-    return new Promise((resolve, reject) => {
-      const ffmpeg = spawn('ffmpeg', [
+
+    return new Promise(async (resolve, reject) => {
+      try {
+        var ffmpegPath = await BinaryResolver.getFFmpegPath();
+      } catch (err) {
+        reject(new Error(`Failed to resolve FFmpeg binary: ${err.message}`));
+        return;
+      }
+
+      const ffmpeg = spawn(ffmpegPath, [
         '-y',
         '-f', 'rawvideo',
         '-pix_fmt', 'rgba',

@@ -1,5 +1,6 @@
 const { spawn } = require("child_process");
 const { EventEmitter } = require("events");
+const BinaryResolver = require("./binary-resolver");
 
 /**
  * FFmpegManager - Centralized FFmpeg process management
@@ -29,18 +30,29 @@ class FFmpegManager extends EventEmitter {
     this.label = label;
     this.isRunning = false;
     this.errorOutput = "";
+    this.ffmpegPath = null;
   }
 
-  start(args) {
-    return new Promise((resolve, reject) => {
+  async start(args) {
+    return new Promise(async (resolve, reject) => {
       if (this.isRunning) {
         reject(new Error(`[${this.label}] FFmpeg process already running`));
         return;
       }
 
+      try {
+        console.log(`[MAIN] [${this.label}] Resolving FFmpeg binary path...`);
+        this.ffmpegPath = await BinaryResolver.getFFmpegPath();
+        console.log(`[MAIN] [${this.label}] Using FFmpeg: ${this.ffmpegPath}`);
+      } catch (err) {
+        console.error(`[MAIN] [${this.label}] Failed to resolve FFmpeg binary: ${err.message}`);
+        reject(new Error(`[${this.label}] Failed to resolve FFmpeg binary: ${err.message}`));
+        return;
+      }
+
       console.log(`[MAIN] [${this.label}] Starting FFmpeg with args:`, args.join(" "));
 
-      this.process = spawn("ffmpeg", args);
+      this.process = spawn(this.ffmpegPath, args);
       this.isRunning = true;
       this.errorOutput = "";
 
@@ -189,11 +201,21 @@ class FFmpegManager extends EventEmitter {
     }
   }
 
-  run(args) {
-    return new Promise((resolve, reject) => {
+  async run(args) {
+    return new Promise(async (resolve, reject) => {
+      try {
+        console.log(`[MAIN] [${this.label}] Resolving FFmpeg binary path...`);
+        this.ffmpegPath = await BinaryResolver.getFFmpegPath();
+        console.log(`[MAIN] [${this.label}] Using FFmpeg: ${this.ffmpegPath}`);
+      } catch (err) {
+        console.error(`[MAIN] [${this.label}] Failed to resolve FFmpeg binary: ${err.message}`);
+        reject(new Error(`[${this.label}] Failed to resolve FFmpeg binary: ${err.message}`));
+        return;
+      }
+
       console.log(`[MAIN] [${this.label}] Running FFmpeg command:`, args.join(" "));
 
-      const process = spawn("ffmpeg", args);
+      const process = spawn(this.ffmpegPath, args);
       let errorOutput = "";
 
       process.stderr.on("data", (data) => {

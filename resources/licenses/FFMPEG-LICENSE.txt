@@ -1,0 +1,28 @@
+FFmpeg License (GPLv3)
+
+This application includes FFmpeg, which is licensed under the GNU General Public License (GPL) version 3 or later.
+
+FFmpeg is a free, open-source software project that provides:
+- Complete solution to record, convert and stream audio and video
+- Support for virtually all audio and video formats
+- High-quality video encoding and decoding
+
+For full details about FFmpeg and its license, visit:
+https://ffmpeg.org/
+
+The source code for FFmpeg is available at:
+https://github.com/FFmpeg/FFmpeg
+
+FFmpeg License Text (Summary):
+FFmpeg is released under the GPLv3 (or later) license. This means:
+1. You have the freedom to run, study, share, and modify the software
+2. The software comes with no warranty
+3. Any derivative works must also be licensed under GPLv3
+4. Source code modifications must be made available
+
+For more information about the GPLv3 license, see:
+https://www.gnu.org/licenses/gpl-3.0.html
+
+Attribution:
+Mochi includes FFmpeg to provide video recording and processing capabilities.
+FFmpeg is developed by the FFmpeg Project and other contributors.
