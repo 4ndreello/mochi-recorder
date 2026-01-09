@@ -1,4 +1,7 @@
 const { ipcRenderer } = require('electron');
+const FFmpegDownloadModal = require('./components/FFmpegDownloadModal');
+
+let downloadModal = null;
 
 const startBtn = document.getElementById('startBtn');
 const stopBtn = document.getElementById('stopBtn');
@@ -81,9 +84,92 @@ ipcRenderer.on('processing-complete', (event, data) => {
   stopBtn.disabled = true;
 });
 
+// Initialize FFmpeg Download Modal
+async function initializeFFmpeg() {
+  try {
+    console.log('[Renderer] ===== FFmpeg Initialization =====');
+    const status = await ipcRenderer.invoke('ffmpeg-check-installation');
+
+    if (status.installed) {
+      console.log(`[Renderer] ✓ FFmpeg found: ${status.source}`);
+      return true;
+    }
+
+    console.log('[Renderer] ✗ FFmpeg not found, showing download modal...');
+
+    // Create and show download modal
+    downloadModal = new FFmpegDownloadModal();
+    downloadModal.show();
+    console.log('[Renderer] Download modal displayed');
+
+    // Setup modal callbacks
+    downloadModal.onRetry = () => {
+      console.log('[Renderer] User clicked retry');
+      downloadModal.setStatus('downloading');
+      ipcRenderer.invoke('ffmpeg-start-download');
+    };
+
+    downloadModal.onUseSystem = () => {
+      console.log('[Renderer] User chose to use system FFmpeg');
+      downloadModal.hide();
+      downloadModal.destroy();
+      downloadModal = null;
+      // Proceed without download - BinaryResolver will use system FFmpeg
+      updateStatus();
+      updateMicStatus();
+    };
+
+    downloadModal.onExit = () => {
+      console.log('[Renderer] User clicked exit');
+      ipcRenderer.send('app-exit-ffmpeg-missing');
+    };
+
+    // Start download
+    console.log('[Renderer] Starting FFmpeg download...');
+    ipcRenderer.invoke('ffmpeg-start-download');
+
+    // Listen for download progress
+    ipcRenderer.on('ffmpeg-download-progress', (event, progress) => {
+      downloadModal?.setProgress(
+        progress.downloaded,
+        progress.total,
+        progress.percentage,
+        progress.speed
+      );
+    });
+
+    // Listen for status changes
+    ipcRenderer.on('ffmpeg-download-status', (event, status) => {
+      console.log(`[Renderer] Download status: ${status}`);
+      downloadModal?.setStatus(status);
+    });
+
+    // Listen for errors
+    ipcRenderer.on('ffmpeg-download-error', (event, errorMessage) => {
+      console.error(`[Renderer] Download error: ${errorMessage}`);
+      downloadModal?.setError(errorMessage);
+    });
+
+    // Listen for completion
+    ipcRenderer.on('ffmpeg-download-complete', () => {
+      console.log('[Renderer] FFmpeg download completed');
+      setTimeout(() => {
+        downloadModal?.hide();
+        downloadModal?.destroy();
+        downloadModal = null;
+        updateStatus();
+        updateMicStatus();
+      }, 1000);
+    });
+
+  } catch (err) {
+    console.error('[Renderer] FFmpeg initialization error:', err);
+    alert(`Erro ao verificar FFmpeg: ${err.message}`);
+  }
+}
+
 // Update initial status
-updateStatus();
-updateMicStatus();
+initializeFFmpeg();
 
 async function updateMicStatus() {
   const status = await ipcRenderer.invoke('get-microphone-status');

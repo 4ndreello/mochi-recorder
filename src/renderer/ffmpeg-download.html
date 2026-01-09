@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FFmpeg Setup</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+        background: transparent;
+        color: #fff;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        margin: 0;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .dialog-container {
+        background: #1a1a1a;
+        border-radius: 12px;
+        padding: 24px;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        overflow: hidden;
+        -webkit-app-region: drag;
+        position: relative;
+      }
+
+      .header {
+        text-align: center;
+        margin-bottom: 20px;
+        cursor: move;
+        padding: 8px;
+        margin: -8px -8px 20px -8px;
+        border-radius: 12px 12px 0 0;
+        position: relative;
+        width: 100%;
+      }
+
+      .drag-handle {
+        position: absolute;
+        top: 8px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        opacity: 0.5;
+        cursor: move;
+        pointer-events: none;
+        z-index: 10;
+      }
+
+      .drag-handle:hover {
+        opacity: 0.7;
+      }
+
+      .drag-row {
+        display: flex;
+        gap: 3px;
+        justify-content: center;
+      }
+
+      .drag-dot {
+        width: 4px;
+        height: 4px;
+        background: #aaa;
+        border-radius: 50%;
+      }
+
+      .header h2 {
+        font-size: 18px;
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: #fff;
+      }
+
+      .header p {
+        font-size: 13px;
+        color: #aaa;
+        line-height: 1.4;
+      }
+
+      .info-box {
+        background: #252525;
+        border: 1px solid #333;
+        border-radius: 12px;
+        padding: 12px;
+        margin-bottom: 20px;
+        width: 100%;
+        font-size: 12px;
+        -webkit-app-region: no-drag;
+      }
+
+      .info-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 6px;
+      }
+
+      .info-row:last-child {
+        margin-bottom: 0;
+      }
+
+      .info-label {
+        color: #888;
+      }
+
+      .info-value {
+        color: #fff;
+        font-weight: 500;
+      }
+
+      .info-value.highlight {
+        color: #667eea;
+      }
+
+      .progress-container {
+        display: none;
+        width: 100%;
+        margin-bottom: 16px;
+        -webkit-app-region: no-drag;
+      }
+
+      .progress-container.active {
+        display: block;
+      }
+
+      .progress-bar {
+        width: 100%;
+        height: 6px;
+        background: rgba(60, 60, 60, 0.4);
+        border-radius: 12px;
+        overflow: hidden;
+      }
+
+      .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #667eea, #764ba2);
+        width: 0%;
+        transition: width 0.15s ease-out;
+      }
+
+      .progress-text {
+        font-size: 11px;
+        color: #888;
+        text-align: center;
+        margin-top: 6px;
+      }
+
+      .buttons {
+        display: flex;
+        gap: 10px;
+        width: 100%;
+        -webkit-app-region: no-drag;
+      }
+
+      button {
+        flex: 1;
+        padding: 12px 16px;
+        border: 1px solid #333;
+        border-radius: 12px;
+        background: #252525;
+        color: #fff;
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        -webkit-app-region: no-drag;
+      }
+
+      button:hover:not(:disabled) {
+        background: #2a2a2a;
+        border-color: #444;
+      }
+
+      button:active:not(:disabled) {
+        background: #222;
+      }
+
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      button.primary {
+        background: #667eea;
+        border-color: #667eea;
+      }
+
+      button.primary:hover:not(:disabled) {
+        background: #5568d3;
+      }
+
+      button.secondary {
+        background: #252525;
+      }
+
+      .download-complete {
+        display: none;
+        text-align: center;
+        margin-bottom: 16px;
+        padding: 12px;
+        background: rgba(74, 222, 128, 0.1);
+        border: 1px solid rgba(74, 222, 128, 0.3);
+        border-radius: 12px;
+        color: #4ade80;
+        font-size: 13px;
+        -webkit-app-region: no-drag;
+      }
+
+      .download-complete.active {
+        display: block;
+      }
+
+      .download-error {
+        display: none;
+        text-align: center;
+        margin-bottom: 16px;
+        padding: 12px;
+        background: rgba(239, 68, 68, 0.1);
+        border: 1px solid rgba(239, 68, 68, 0.3);
+        border-radius: 12px;
+        color: #ef4444;
+        font-size: 13px;
+        -webkit-app-region: no-drag;
+      }
+
+      .download-error.active {
+        display: block;
+      }
+
+      .btn-spinner {
+        width: 14px;
+        height: 14px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+        flex-shrink: 0;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="dialog-container">
+      <div class="drag-handle">
+        <div class="drag-row">
+          <div class="drag-dot"></div>
+          <div class="drag-dot"></div>
+          <div class="drag-dot"></div>
+        </div>
+        <div class="drag-row">
+          <div class="drag-dot"></div>
+          <div class="drag-dot"></div>
+          <div class="drag-dot"></div>
+        </div>
+      </div>
+      <div class="header">
+        <h2>Setting up Mochi</h2>
+        <p>FFmpeg is required for recording. Downloading now...</p>
+      </div>
+
+      <div class="info-box">
+        <div class="info-row">
+          <span class="info-label">Component:</span>
+          <span class="info-value">FFmpeg</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Size:</span>
+          <span class="info-value highlight" id="downloadSize"
+            >Calculating...</span
+          >
+        </div>
+      </div>
+
+      <div class="progress-container active" id="progressContainer">
+        <div class="progress-bar">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <div class="progress-text" id="progressText">Starting download...</div>
+      </div>
+
+      <div class="download-complete" id="downloadComplete">
+        FFmpeg installed successfully! Mochi is ready to use.
+      </div>
+
+      <div class="download-error" id="downloadError">
+        <span id="errorMessage"
+          >Download failed. Please check your internet connection.</span
+        >
+      </div>
+
+      <div class="buttons">
+        <button class="secondary" id="btnExit">Exit</button>
+        <button class="primary" id="btnDownload">
+          <div class="btn-spinner"></div>
+          Downloading...
+        </button>
+      </div>
+    </div>
+
+    <script>
+      const { ipcRenderer } = require("electron");
+
+      const progressContainer = document.getElementById("progressContainer");
+      const progressFill = document.getElementById("progressFill");
+      const progressText = document.getElementById("progressText");
+      const downloadComplete = document.getElementById("downloadComplete");
+      const downloadError = document.getElementById("downloadError");
+      const errorMessage = document.getElementById("errorMessage");
+      const downloadSize = document.getElementById("downloadSize");
+      const btnDownload = document.getElementById("btnDownload");
+      const btnExit = document.getElementById("btnExit");
+
+      let isDownloading = true;
+      let isComplete = false;
+      let hasError = false;
+
+      // Start download automatically
+      ipcRenderer.invoke("ffmpeg-start-download-from-window");
+
+      ipcRenderer.on("ffmpeg-download-progress", (event, progress) => {
+        const downloaded = (progress.downloaded / 1024 / 1024).toFixed(1);
+        const total = (progress.total / 1024 / 1024).toFixed(1);
+        const percent = progress.percentage;
+        const speed = progress.speed.toFixed(1);
+
+        progressFill.style.width = percent + "%";
+        progressText.textContent = `${downloaded} MB / ${total} MB (${percent}%) • ${speed} MB/s`;
+        downloadSize.textContent = `${total} MB`;
+      });
+
+      ipcRenderer.on("ffmpeg-download-status", (event, status) => {
+        console.log("[FFmpeg] Status:", status);
+
+        if (status === "extracting") {
+          progressText.textContent = "Extracting files...";
+          btnDownload.innerHTML =
+            '<div class="btn-spinner"></div> Extracting...';
+        } else if (status === "verifying") {
+          progressText.textContent = "Verifying installation...";
+          btnDownload.innerHTML =
+            '<div class="btn-spinner"></div> Verifying...';
+        } else if (status === "completed") {
+          isComplete = true;
+          isDownloading = false;
+          progressContainer.classList.remove("active");
+          downloadComplete.classList.add("active");
+          btnDownload.innerHTML = "Done";
+          btnDownload.disabled = false;
+          btnExit.style.display = "none";
+
+          // Auto close after 2 seconds
+          setTimeout(() => {
+            ipcRenderer.send("ffmpeg-download-window-close");
+          }, 2000);
+        } else if (status === "error") {
+          hasError = true;
+          isDownloading = false;
+          progressContainer.classList.remove("active");
+          downloadError.classList.add("active");
+          btnDownload.innerHTML = "Retry";
+          btnDownload.disabled = false;
+        }
+      });
+
+      ipcRenderer.on("ffmpeg-download-error", (event, error) => {
+        console.error("[FFmpeg] Error:", error);
+        errorMessage.textContent = error;
+        hasError = true;
+        isDownloading = false;
+        progressContainer.classList.remove("active");
+        downloadError.classList.add("active");
+        btnDownload.innerHTML = "Retry";
+        btnDownload.disabled = false;
+      });
+
+      btnDownload.addEventListener("click", async () => {
+        if (isComplete) {
+          ipcRenderer.send("ffmpeg-download-window-close");
+        } else if (hasError) {
+          // Retry download
+          hasError = false;
+          isDownloading = true;
+          downloadError.classList.remove("active");
+          progressContainer.classList.add("active");
+          progressFill.style.width = "0%";
+          progressText.textContent = "Starting download...";
+          btnDownload.innerHTML =
+            '<div class="btn-spinner"></div> Downloading...';
+          btnDownload.disabled = true;
+          ipcRenderer.invoke("ffmpeg-start-download-from-window");
+        }
+      });
+
+      btnExit.addEventListener("click", () => {
+        ipcRenderer.send("app-exit-ffmpeg-missing");
+      });
+    </script>
+  </body>
+</html>
