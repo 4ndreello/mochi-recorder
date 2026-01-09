@@ -8,6 +8,7 @@ class UpdateManager {
     this.isDevMode = process.argv.includes("--dev");
     this.checkInterval = null;
     this.updateInfo = null;
+    this.iconPath = path.join(__dirname, "../../renderer/assets/icon.png");
 
     // Configure autoUpdater
     autoUpdater.autoDownload = false; // Don't download automatically, wait for user confirmation
@@ -111,6 +112,7 @@ class UpdateManager {
       alwaysOnTop: true,
       skipTaskbar: false,
       backgroundColor: "#00000000",
+      icon: this.iconPath,
       webPreferences: {
         nodeIntegration: true,
         contextIsolation: false,

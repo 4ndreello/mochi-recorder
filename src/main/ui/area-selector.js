@@ -10,6 +10,7 @@ class AreaSelector {
     this.areaSelectedHandler = null;
     this.cancelledHandler = null;
     this.selectionStartedHandler = null;
+    this.iconPath = path.join(__dirname, "../../renderer/assets/icon.png");
   }
 
   create(callback, cancelCallback) {
@@ -39,6 +40,7 @@ class AreaSelector {
         resizable: false,
         movable: false,
         show: false,
+        icon: this.iconPath,
         webPreferences: {
           nodeIntegration: true,
           contextIsolation: false,

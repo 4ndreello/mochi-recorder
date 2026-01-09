@@ -4,6 +4,7 @@ const path = require('path');
 class FFmpegDownloadWindow {
   constructor() {
     this.window = null;
+    this.iconPath = path.join(__dirname, '../../renderer/assets/icon.png');
   }
 
   create() {
@@ -21,6 +22,7 @@ class FFmpegDownloadWindow {
       alwaysOnTop: true,
       skipTaskbar: false,
       backgroundColor: "#00000000",
+      icon: this.iconPath,
       webPreferences: {
         nodeIntegration: true,
         contextIsolation: false,

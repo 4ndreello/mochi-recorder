@@ -10,6 +10,7 @@ class RecordingOverlay {
     this.controlsHeight = 200;
     this.positionSide = "top";
     this.controlsGap = 12;
+    this.iconPath = path.join(__dirname, "../../renderer/assets/icon.png");
   }
 
   calculateControlsPosition(region, width, height) {
@@ -76,6 +77,7 @@ class RecordingOverlay {
       enableLargerThanScreen: true,
       type: "toolbar",
       thickFrame: false,
+      icon: this.iconPath,
       webPreferences: {
         nodeIntegration: true,
         contextIsolation: false,
@@ -140,6 +142,7 @@ class RecordingOverlay {
       backgroundColor: "#00000000",
       type: "toolbar",
       thickFrame: false,
+      icon: this.iconPath,
       webPreferences: {
         nodeIntegration: true,
         contextIsolation: false,

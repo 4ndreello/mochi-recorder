@@ -7,6 +7,7 @@ class PostRecordingDialog {
   constructor() {
     this.window = null;
     this.uploader = new CatboxUploader();
+    this.iconPath = path.join(__dirname, '../../renderer/assets/icon.png');
     this.setupIpcHandlers();
   }
 
@@ -68,6 +69,7 @@ class PostRecordingDialog {
       alwaysOnTop: true,
       skipTaskbar: false,
       backgroundColor: '#1a1a1a',
+      icon: this.iconPath,
       webPreferences: {
         nodeIntegration: true,
         contextIsolation: false,
