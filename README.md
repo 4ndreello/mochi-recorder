@@ -48,12 +48,12 @@
    </tr>
 </table>
 
-<p><strong>Note:</strong> FFmpeg is automatically downloaded on first launch (~120MB). No manual installation needed!</p>
+<p><strong>Note:</strong> FFmpeg is automatically downloaded on first launch (~40MB). No manual installation needed!</p>
 <h2>First Launch</h2>
 <p>When you launch Mochi for the first time, it will:</p>
 <ol>
    <li>Check for FFmpeg installation</li>
-   <li>If FFmpeg is not found, show a progress dialog for automatic download (~120MB)</li>
+   <li>If FFmpeg is not found, show a progress dialog for automatic download (~40MB)</li>
    <li>Download, extract, and verify FFmpeg binaries (2-3 minutes depending on connection)</li>
    <li>Store FFmpeg in <code>~/.config/mochi/bin/</code> for future launches</li>
    <li>Start normally after download completes</li>
