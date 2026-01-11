@@ -17,7 +17,6 @@
       background: transparent !important;
       background-color: transparent !important;
       overflow: hidden !important;
-      pointer-events: none;
       width: 100% !important;
       height: 100% !important;
       position: fixed !important;
@@ -25,6 +24,7 @@
       left: 0 !important;
       right: 0 !important;
       bottom: 0 !important;
+      pointer-events: none;
     }
 
     .recording-box {
@@ -33,8 +33,8 @@
       outline: 3px dashed #f1c40f;
       outline-offset: 4px;
       background: transparent;
-      pointer-events: none;
       z-index: 999999;
+      pointer-events: none;
     }
 
     .recording-box.ready {
@@ -57,27 +57,287 @@
         outline-color: #ff6b7a;
       }
     }
+
+    .resize-handle {
+      position: absolute;
+      background: #f1c40f;
+      pointer-events: auto !important;
+      z-index: 1000001;
+      opacity: 0.9;
+    }
+
+    .resize-handle:hover {
+      opacity: 1;
+      transform: scale(1.1);
+    }
+
+    .resize-handle.hidden {
+      display: none !important;
+    }
+
+    .resize-handle.corner {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+    }
+
+    .resize-handle.edge {
+      background: rgba(241, 196, 15, 0.01);
+    }
+
+    .resize-handle.edge:hover {
+      background: rgba(241, 196, 15, 0.4);
+    }
+
+    .handle-nw { top: -11px; left: -11px; cursor: nwse-resize; }
+    .handle-ne { top: -11px; right: -11px; cursor: nesw-resize; }
+    .handle-sw { bottom: -11px; left: -11px; cursor: nesw-resize; }
+    .handle-se { bottom: -11px; right: -11px; cursor: nwse-resize; }
+
+    .handle-n { top: -10px; left: 14px; right: 14px; height: 14px; cursor: ns-resize; border-radius: 3px; }
+    .handle-s { bottom: -10px; left: 14px; right: 14px; height: 14px; cursor: ns-resize; border-radius: 3px; }
+    .handle-w { left: -10px; top: 14px; bottom: 14px; width: 14px; cursor: ew-resize; border-radius: 3px; }
+    .handle-e { right: -10px; top: 14px; bottom: 14px; width: 14px; cursor: ew-resize; border-radius: 3px; }
+
+    .move-handle {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      right: 10px;
+      bottom: 10px;
+      cursor: move;
+      pointer-events: auto !important;
+      z-index: 1000000;
+      background: rgba(241, 196, 15, 0.01);
+      border-radius: 4px;
+    }
+
+    .move-handle:hover {
+      background: rgba(241, 196, 15, 0.1);
+    }
+
+    .move-handle.hidden {
+      display: none !important;
+    }
+
+    .size-info {
+      position: absolute;
+      top: -32px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.85);
+      color: white;
+      padding: 5px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s;
+      z-index: 1000002;
+    }
+
+    .size-info.visible {
+      opacity: 1;
+    }
   </style>
 </head>
 <body>
-  <div class="recording-box" id="recordingBox"></div>
+  <div class="recording-box" id="recordingBox">
+    <div class="move-handle hidden" id="moveHandle"></div>
+    <div class="size-info" id="sizeInfo"></div>
+    <div class="resize-handle corner handle-nw hidden" data-handle="nw"></div>
+    <div class="resize-handle corner handle-ne hidden" data-handle="ne"></div>
+    <div class="resize-handle corner handle-sw hidden" data-handle="sw"></div>
+    <div class="resize-handle corner handle-se hidden" data-handle="se"></div>
+    <div class="resize-handle edge handle-n hidden" data-handle="n"></div>
+    <div class="resize-handle edge handle-s hidden" data-handle="s"></div>
+    <div class="resize-handle edge handle-w hidden" data-handle="w"></div>
+    <div class="resize-handle edge handle-e hidden" data-handle="e"></div>
+  </div>
 
   <script>
     const { ipcRenderer } = require('electron');
 
     const recordingBox = document.getElementById('recordingBox');
-    // Hide initially
+    const moveHandle = document.getElementById('moveHandle');
+    const sizeInfo = document.getElementById('sizeInfo');
+    const resizeHandles = document.querySelectorAll('.resize-handle');
+
+    let currentRegion = { x: 0, y: 0, width: 0, height: 0 };
+    let windowOffset = { x: 0, y: 0 };
+    let isDragging = false;
+    let isResizing = false;
+    let activeHandle = null;
+    let dragStartPos = { x: 0, y: 0 };
+    let initialRegion = { x: 0, y: 0, width: 0, height: 0 };
+    let isReady = false;
+
     recordingBox.style.display = 'none';
+
+    function updateSizeInfo() {
+      sizeInfo.textContent = `${Math.round(currentRegion.width)} × ${Math.round(currentRegion.height)}`;
+    }
+
+    function showSizeInfo() {
+      sizeInfo.classList.add('visible');
+    }
+
+    function hideSizeInfo() {
+      sizeInfo.classList.remove('visible');
+    }
+
+    function updateBoxPosition() {
+      recordingBox.style.left = (currentRegion.x - windowOffset.x) + 'px';
+      recordingBox.style.top = (currentRegion.y - windowOffset.y) + 'px';
+      recordingBox.style.width = currentRegion.width + 'px';
+      recordingBox.style.height = currentRegion.height + 'px';
+      updateSizeInfo();
+    }
+
+    function setHandlesVisible(visible) {
+      resizeHandles.forEach(h => {
+        if (visible) {
+          h.classList.remove('hidden');
+        } else {
+          h.classList.add('hidden');
+        }
+      });
+      if (visible) {
+        moveHandle.classList.remove('hidden');
+      } else {
+        moveHandle.classList.add('hidden');
+      }
+    }
+
+    moveHandle.addEventListener('mousedown', (e) => {
+      if (!isReady) return;
+      e.preventDefault();
+      e.stopPropagation();
+      isDragging = true;
+      dragStartPos = { x: e.screenX, y: e.screenY };
+      initialRegion = { ...currentRegion };
+      showSizeInfo();
+      ipcRenderer.send('region-drag-start');
+    });
+
+    resizeHandles.forEach(handle => {
+      handle.addEventListener('mousedown', (e) => {
+        if (!isReady) return;
+        e.preventDefault();
+        e.stopPropagation();
+        isResizing = true;
+        activeHandle = handle.dataset.handle;
+        dragStartPos = { x: e.screenX, y: e.screenY };
+        initialRegion = { ...currentRegion };
+        showSizeInfo();
+        ipcRenderer.send('region-drag-start');
+      });
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isDragging && !isResizing) return;
+
+      const deltaX = e.screenX - dragStartPos.x;
+      const deltaY = e.screenY - dragStartPos.y;
+
+      if (isDragging) {
+        currentRegion.x = initialRegion.x + deltaX;
+        currentRegion.y = initialRegion.y + deltaY;
+      } else if (isResizing) {
+        const minSize = 50;
+
+        switch (activeHandle) {
+          case 'nw':
+            currentRegion.x = initialRegion.x + deltaX;
+            currentRegion.y = initialRegion.y + deltaY;
+            currentRegion.width = Math.max(minSize, initialRegion.width - deltaX);
+            currentRegion.height = Math.max(minSize, initialRegion.height - deltaY);
+            if (currentRegion.width === minSize) currentRegion.x = initialRegion.x + initialRegion.width - minSize;
+            if (currentRegion.height === minSize) currentRegion.y = initialRegion.y + initialRegion.height - minSize;
+            break;
+          case 'ne':
+            currentRegion.y = initialRegion.y + deltaY;
+            currentRegion.width = Math.max(minSize, initialRegion.width + deltaX);
+            currentRegion.height = Math.max(minSize, initialRegion.height - deltaY);
+            if (currentRegion.height === minSize) currentRegion.y = initialRegion.y + initialRegion.height - minSize;
+            break;
+          case 'sw':
+            currentRegion.x = initialRegion.x + deltaX;
+            currentRegion.width = Math.max(minSize, initialRegion.width - deltaX);
+            currentRegion.height = Math.max(minSize, initialRegion.height + deltaY);
+            if (currentRegion.width === minSize) currentRegion.x = initialRegion.x + initialRegion.width - minSize;
+            break;
+          case 'se':
+            currentRegion.width = Math.max(minSize, initialRegion.width + deltaX);
+            currentRegion.height = Math.max(minSize, initialRegion.height + deltaY);
+            break;
+          case 'n':
+            currentRegion.y = initialRegion.y + deltaY;
+            currentRegion.height = Math.max(minSize, initialRegion.height - deltaY);
+            if (currentRegion.height === minSize) currentRegion.y = initialRegion.y + initialRegion.height - minSize;
+            break;
+          case 's':
+            currentRegion.height = Math.max(minSize, initialRegion.height + deltaY);
+            break;
+          case 'w':
+            currentRegion.x = initialRegion.x + deltaX;
+            currentRegion.width = Math.max(minSize, initialRegion.width - deltaX);
+            if (currentRegion.width === minSize) currentRegion.x = initialRegion.x + initialRegion.width - minSize;
+            break;
+          case 'e':
+            currentRegion.width = Math.max(minSize, initialRegion.width + deltaX);
+            break;
+        }
+      }
+
+      updateBoxPosition();
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (isDragging || isResizing) {
+        isDragging = false;
+        isResizing = false;
+        activeHandle = null;
+        hideSizeInfo();
+        ipcRenderer.send('region-changed', {
+          x: Math.round(currentRegion.x),
+          y: Math.round(currentRegion.y),
+          width: Math.round(currentRegion.width),
+          height: Math.round(currentRegion.height)
+        });
+      }
+    });
 
     ipcRenderer.on('set-region', (event, region) => {
       if (region && region.width > 0 && region.height > 0) {
-        recordingBox.style.left = region.x + 'px';
-        recordingBox.style.top = region.y + 'px';
-        recordingBox.style.width = region.width + 'px';
-        recordingBox.style.height = region.height + 'px';
-        recordingBox.style.display = 'block';
-        // Initial state is 'ready' (yellow)
-        recordingBox.classList.add('ready');
+        ipcRenderer.invoke('get-border-window-bounds').then(bounds => {
+          if (bounds) {
+            windowOffset = { x: bounds.x, y: bounds.y };
+          } else {
+            windowOffset = { x: 0, y: 0 };
+          }
+          currentRegion = {
+            x: region.x + windowOffset.x,
+            y: region.y + windowOffset.y,
+            width: region.width,
+            height: region.height
+          };
+          updateBoxPosition();
+          recordingBox.style.display = 'block';
+          recordingBox.classList.add('ready');
+          isReady = true;
+          setHandlesVisible(true);
+        }).catch(() => {
+          windowOffset = { x: 0, y: 0 };
+          currentRegion = { x: region.x, y: region.y, width: region.width, height: region.height };
+          updateBoxPosition();
+          recordingBox.style.display = 'block';
+          recordingBox.classList.add('ready');
+          isReady = true;
+          setHandlesVisible(true);
+        });
       }
     });
 
@@ -85,11 +345,14 @@
       recordingBox.classList.remove('ready', 'recording');
       if (state === 'ready') {
         recordingBox.classList.add('ready');
+        isReady = true;
+        setHandlesVisible(true);
       } else if (state === 'recording') {
         recordingBox.classList.add('recording');
+        isReady = false;
+        setHandlesVisible(false);
       }
     });
   </script>
 </body>
 </html>
-

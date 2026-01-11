@@ -71,7 +71,7 @@ class RecordingOverlay {
       skipTaskbar: true,
       resizable: false,
       movable: false,
-      focusable: false,
+      focusable: true,
       hasShadow: false,
       backgroundColor: "#00000000",
       enableLargerThanScreen: true,
@@ -89,7 +89,6 @@ class RecordingOverlay {
     this.borderWindow.loadFile(
       path.join(__dirname, "../../renderer/recording-border.html"),
     );
-    this.borderWindow.setIgnoreMouseEvents(true);
     this.borderWindow.setMenuBarVisibility(false);
     this.borderWindow.setVisibleOnAllWorkspaces(true, {
       visibleOnFullScreen: true,
@@ -274,6 +273,7 @@ class RecordingOverlay {
 
   updateRegion(region) {
     this.region = region;
+    this.regionAbsolute = region;
     if (this.borderWindow && !this.borderWindow.isDestroyed()) {
       const bounds = this.borderWindow.getBounds();
       const adjustedRegion = {
