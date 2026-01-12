@@ -139,6 +139,10 @@ ipcMain.on("stop-recording-clicked", () => {
 });
 
 ipcMain.on("start-recording-clicked", () => {
+  // Immediately disable resize/drag handles while FFmpeg starts
+  if (recordingOverlay) {
+    recordingOverlay.setRecordingState("starting");
+  }
   startCapture();
 });
 
@@ -165,6 +169,41 @@ ipcMain.on("rerecord-clicked", () => {
   }
   selectedRegion = null;
   showAreaSelector();
+});
+
+ipcMain.on("region-drag-start", () => {
+  if (!recordingOverlay || isRecording) return;
+
+  if (recordingOverlay.controlsWindow && !recordingOverlay.controlsWindow.isDestroyed()) {
+    recordingOverlay.controlsWindow.hide();
+  }
+});
+
+ipcMain.on("region-changed", (event, newRegion) => {
+  if (!recordingOverlay || isRecording) return;
+
+  selectedRegion = newRegion;
+  recordingOverlay.updateRegion(newRegion);
+
+  const newControlsPos = recordingOverlay.calculateControlsPosition(
+    newRegion,
+    recordingOverlay.controlsWidth,
+    recordingOverlay.controlsHeight
+  );
+
+  if (recordingOverlay.controlsWindow && !recordingOverlay.controlsWindow.isDestroyed()) {
+    recordingOverlay.controlsWindow.setPosition(newControlsPos.x, newControlsPos.y);
+    recordingOverlay.positionSide = newControlsPos.side;
+    recordingOverlay.controlsWindow.webContents.send("position-side", newControlsPos.side);
+    recordingOverlay.controlsWindow.show();
+  }
+});
+
+ipcMain.handle("get-border-window-bounds", () => {
+  if (recordingOverlay && recordingOverlay.borderWindow && !recordingOverlay.borderWindow.isDestroyed()) {
+    return recordingOverlay.borderWindow.getBounds();
+  }
+  return null;
 });
 
 function showAreaSelector() {
