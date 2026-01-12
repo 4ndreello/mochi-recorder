@@ -1,12 +1,8 @@
 const {
-  detectAudioBackend,
   getSystemAudioMonitor,
-  getSystemAudioMonitorALSA,
   getSystemMicrophone,
-  getSystemMicrophoneALSA,
 } = require("../utils/env-detector");
 const FFmpegManager = require("../utils/ffmpeg-manager");
-const BinaryResolver = require("../utils/binary-resolver");
 
 const QUALITY_CRF_MAP = {
   low: 28,
@@ -70,34 +66,19 @@ class BaseCapture {
     throw new Error("buildVideoArgs() must be implemented by child class");
   }
 
-  buildAudioArgs(ffmpegPath) {
-    const audioBackend = detectAudioBackend(ffmpegPath);
-
-    if (!audioBackend) {
-      console.log('[Capture] No audio backend available');
-      return { audioArgs: [], audioInputs: [], audioMonitor: null, microphone: null };
-    }
-
-    console.log(`[Capture] Using audio backend: ${audioBackend}`);
-
-    // Select appropriate source functions based on backend
-    const audioMonitor = this.useSystemAudio
-      ? (audioBackend === 'pulse' ? getSystemAudioMonitor() : getSystemAudioMonitorALSA())
-      : null;
-
-    const microphone = this.useMicrophone
-      ? (audioBackend === 'pulse' ? getSystemMicrophone() : getSystemMicrophoneALSA())
-      : null;
+  buildAudioArgs() {
+    const audioMonitor = this.useSystemAudio ? getSystemAudioMonitor() : null;
+    const microphone = this.useMicrophone ? getSystemMicrophone() : null;
 
     const audioArgs = [];
     const audioInputs = [];
 
     if (audioMonitor) {
-      audioInputs.push({ format: audioBackend, source: audioMonitor });
+      audioInputs.push({ format: "pulse", source: audioMonitor });
     }
 
     if (microphone) {
-      audioInputs.push({ format: audioBackend, source: microphone });
+      audioInputs.push({ format: "pulse", source: microphone });
     }
 
     audioInputs.forEach((input) => {
@@ -154,11 +135,7 @@ class BaseCapture {
   }
 
   async startRecording(outputPath) {
-    // Resolve FFmpeg path FIRST so we can detect audio backend
-    const ffmpegPath = await BinaryResolver.getFFmpegPath();
-    console.log(`[Capture] Using FFmpeg at: ${ffmpegPath}`);
-
-    const { audioArgs, audioInputs } = this.buildAudioArgs(ffmpegPath);
+    const { audioArgs, audioInputs } = this.buildAudioArgs();
     const videoArgs = await this.buildVideoArgs();
 
     const videoInputIndex = audioInputs.length;

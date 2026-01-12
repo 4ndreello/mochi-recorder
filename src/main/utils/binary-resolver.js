@@ -36,6 +36,7 @@ class BinaryResolver {
         stdio: ['pipe', 'pipe', 'pipe']
       });
 
+      // Both ffmpeg and ffprobe return status 0 and output to stdout or stderr
       const hasOutput = result.stdout || result.stderr;
       const isValid = result.status === 0 && hasOutput && hasOutput.length > 0;
       console.log(`[BinaryResolver] Test binary "${binaryPath}": status=${result.status}, hasOutput=${!!hasOutput}, valid=${isValid}`);
@@ -56,6 +57,7 @@ class BinaryResolver {
   }
 
   static async resolveBinary(name) {
+    // Check cache first
     if (this.cachedPaths[name]) {
       console.log(`[BinaryResolver] Using cached path for ${name}: ${this.cachedPaths[name]}`);
       return this.cachedPaths[name];
@@ -138,6 +140,7 @@ class BinaryResolver {
         return;
       }
 
+      // Listen for download completion
       ipcMain.once('ffmpeg-download-complete', () => {
         this.downloadInProgress = false;
         this.cachedPaths['ffmpeg'] = this.getDownloadedPath('ffmpeg');
@@ -149,8 +152,10 @@ class BinaryResolver {
         reject(new Error('FFmpeg download failed'));
       });
 
+      // Send signal to renderer to show download modal
       mainWindow.webContents.send('show-ffmpeg-download-modal');
 
+      // Timeout after 30 minutes
       setTimeout(() => {
         if (this.downloadInProgress) {
           this.downloadInProgress = false;
@@ -161,8 +166,8 @@ class BinaryResolver {
   }
 
   static async getFFmpegPath() {
+    // Check command line arguments for force-system-binary
     const args = process.argv;
-    
     if (args.includes('--force-system-binary')) {
       const systemPath = this.getSystemPath('ffmpeg');
       if (systemPath) {
@@ -175,16 +180,6 @@ class BinaryResolver {
   }
 
   static async getFFprobePath() {
-    const systemPath = this.getSystemPath('ffprobe');
-    if (systemPath && this.cachedPaths['ffmpeg']) {
-      const downloadedFfmpegPath = this.getDownloadedPath('ffmpeg');
-      const isUsingDownloadedFfmpeg = downloadedFfmpegPath && 
-        path.resolve(this.cachedPaths['ffmpeg']) === path.resolve(downloadedFfmpegPath);
-      
-      if (!isUsingDownloadedFfmpeg) {
-        return systemPath;
-      }
-    }
     return this.resolveBinary('ffprobe');
   }
 }
