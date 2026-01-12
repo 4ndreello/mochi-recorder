@@ -35,6 +35,41 @@ async function detectEnvironment() {
   }
 }
 
+function detectAudioBackend(ffmpegPath) {
+  if (!ffmpegPath) return 'pulse'; // Default to pulse if path unknown
+
+  // 1. Test if FFmpeg supports pulse
+  try {
+    const formats = execSync(`"${ffmpegPath}" -formats 2>&1`, { encoding: 'utf-8', timeout: 5000 });
+    const hasPulse = formats.includes('pulse');
+    
+    if (hasPulse) {
+      // Verify if PulseAudio is actually running
+      try {
+        execSync('pactl info', { stdio: 'ignore', timeout: 2000 });
+        console.log('[EnvDetector] Audio backend: pulse (supported by FFmpeg and running)');
+        return 'pulse';
+      } catch (e) {
+        console.log('[EnvDetector] PulseAudio not running, falling back to alsa');
+      }
+    }
+  } catch (e) {
+    console.warn('[EnvDetector] Error checking FFmpeg formats:', e.message);
+  }
+
+  // 2. Fallback to ALSA (always available on Linux)
+  try {
+    const formats = execSync(`"${ffmpegPath}" -formats 2>&1`, { encoding: 'utf-8', timeout: 5000 });
+    if (formats.includes('alsa')) {
+      console.log('[EnvDetector] Audio backend: alsa');
+      return 'alsa';
+    }
+  } catch (e) {}
+
+  console.warn('[EnvDetector] No suitable audio backend found in FFmpeg');
+  return null; // No audio
+}
+
 function getSystemAudioMonitor() {
   try {
     const defaultSink = execSync('pactl get-default-sink', {
@@ -77,6 +112,12 @@ function getSystemAudioMonitor() {
     console.warn('Error detecting audio monitor:', e);
   }
   
+  return 'default';
+}
+
+function getSystemAudioMonitorALSA() {
+  // ALSA doesn't have a direct equivalent to Pulse's monitor
+  // 'default' usually works or it might need a loopback device
   return 'default';
 }
 
@@ -131,5 +172,22 @@ function getSystemMicrophone() {
   return null; // Return null if microphone not found
 }
 
-module.exports = { detectEnvironment, getSystemAudioMonitor, getSystemMicrophone };
+function getSystemMicrophoneALSA() {
+  try {
+    const output = execSync('arecord -L 2>/dev/null | head -20', { encoding: 'utf-8' });
+    if (output.includes('default')) return 'default';
+    
+    const match = output.match(/hw:\d+,\d+/);
+    if (match) return match[0];
+  } catch (e) {}
+  return 'default';
+}
 
+module.exports = { 
+  detectEnvironment, 
+  detectAudioBackend,
+  getSystemAudioMonitor, 
+  getSystemAudioMonitorALSA,
+  getSystemMicrophone,
+  getSystemMicrophoneALSA
+};
