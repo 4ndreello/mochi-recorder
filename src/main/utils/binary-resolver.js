@@ -65,7 +65,32 @@ class BinaryResolver {
 
     console.log(`[BinaryResolver] ===== Resolving ${name} =====`);
 
-    // Check downloaded binary in ~/.config/mochi/bin/
+    // PRIORITY 1: Check system PATH first (system FFmpeg usually has full codec/device support)
+    const systemPath = this.getSystemPath(name);
+    if (systemPath) {
+      console.log(`[BinaryResolver] Checking system binary at: ${systemPath}`);
+      if (this.testBinary(systemPath)) {
+        // Verify pulse support for audio recording
+        if (name === 'ffmpeg' && this.supportsPulseAudio(systemPath)) {
+          console.log(`[BinaryResolver] ✓ System binary is VALID with PulseAudio support: ${systemPath}`);
+          this.cachedPaths[name] = systemPath;
+          return systemPath;
+        } else if (name === 'ffmpeg') {
+          console.log(`[BinaryResolver] ⚠ System binary works but lacks PulseAudio support`);
+        } else {
+          // For ffprobe, no pulse check needed
+          console.log(`[BinaryResolver] ✓ System binary is VALID: ${systemPath}`);
+          this.cachedPaths[name] = systemPath;
+          return systemPath;
+        }
+      } else {
+        console.log(`[BinaryResolver] ✗ System binary is INVALID (test failed)`);
+      }
+    } else {
+      console.log(`[BinaryResolver] ✗ System binary NOT FOUND in PATH`);
+    }
+
+    // PRIORITY 2: Check downloaded binary in ~/.config/mochi/bin/
     const downloadedPath = this.getDownloadedPath(name);
     console.log(`[BinaryResolver] Checking Mochi binary at: ${downloadedPath}`);
     if (fs.existsSync(downloadedPath)) {
@@ -81,9 +106,27 @@ class BinaryResolver {
       console.log(`[BinaryResolver] ✗ Mochi binary NOT FOUND - download required`);
     }
 
-    // Binary not found in Mochi folder - trigger download
-    console.log(`[BinaryResolver] ✗ ${name} not found in Mochi folder, download required`);
+    // Binary not found anywhere - trigger download
+    console.log(`[BinaryResolver] ✗ ${name} not found anywhere, download required`);
     throw new Error(`${name} not found. Download required.`);
+  }
+
+  static supportsPulseAudio(ffmpegPath) {
+    try {
+      const result = spawnSync(ffmpegPath, ['-formats'], {
+        encoding: 'utf-8',
+        timeout: 5000,
+        stdio: ['pipe', 'pipe', 'pipe']
+      });
+
+      const output = (result.stdout || '') + (result.stderr || '');
+      const hasPulse = output.includes('pulse');
+      console.log(`[BinaryResolver] PulseAudio support check for ${ffmpegPath}: ${hasPulse}`);
+      return hasPulse;
+    } catch (err) {
+      console.log(`[BinaryResolver] PulseAudio check failed: ${err.message}`);
+      return false;
+    }
   }
 
   static triggerDownload() {

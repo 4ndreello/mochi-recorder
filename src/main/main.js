@@ -382,6 +382,10 @@ async function stopRecording() {
     return;
   }
 
+  if (recordingOverlay) {
+    recordingOverlay.notifyProcessingProgress("stopping", 0);
+  }
+
   try {
     console.log("[MAIN] Stopping capture...");
     await captureManager.stopRecording();
