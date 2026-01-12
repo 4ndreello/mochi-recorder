@@ -1,10 +1,105 @@
 const { execSync } = require("child_process");
 const BaseCapture = require("./base-capture");
 
+/**
+ * Error thrown when capture region is outside screen bounds
+ */
+class RegionOutOfBoundsError extends Error {
+  constructor(message, details = {}) {
+    super(message);
+    this.name = "RegionOutOfBoundsError";
+    this.details = details;
+  }
+}
+
 class X11Capture extends BaseCapture {
   constructor() {
     super();
     this.display = process.env.DISPLAY || ":0";
+  }
+
+  /**
+   * Validates and clamps region to fit within screen bounds.
+   * Returns adjusted region or throws if region is completely outside.
+   * 
+   * @param {Object} region - { x, y, width, height }
+   * @param {Object} screenBounds - { width, height }
+   * @returns {Object} - Clamped region { x, y, width, height, wasClamped }
+   * @throws {RegionOutOfBoundsError} if region is completely outside screen
+   */
+  static validateAndClampRegion(region, screenBounds) {
+    if (!region || !screenBounds) {
+      throw new RegionOutOfBoundsError("Region or screen bounds not provided", {
+        region,
+        screenBounds,
+      });
+    }
+
+    const { x, y, width, height } = region;
+    const { width: screenWidth, height: screenHeight } = screenBounds;
+
+    // Check if region is completely outside screen
+    if (x >= screenWidth || y >= screenHeight) {
+      throw new RegionOutOfBoundsError(
+        `Region starts outside screen bounds. Region (${x}, ${y}) is outside screen (${screenWidth}x${screenHeight})`,
+        { region, screenBounds }
+      );
+    }
+
+    if (x + width <= 0 || y + height <= 0) {
+      throw new RegionOutOfBoundsError(
+        `Region is completely outside screen (negative area)`,
+        { region, screenBounds }
+      );
+    }
+
+    let clampedX = Math.max(0, x);
+    let clampedY = Math.max(0, y);
+    let clampedWidth = width;
+    let clampedHeight = height;
+    let wasClamped = false;
+
+    // Adjust for negative x/y
+    if (x < 0) {
+      clampedWidth = width + x; // reduce width by overflow
+      clampedX = 0;
+      wasClamped = true;
+    }
+    if (y < 0) {
+      clampedHeight = height + y;
+      clampedY = 0;
+      wasClamped = true;
+    }
+
+    // Clamp width/height to not exceed screen bounds
+    if (clampedX + clampedWidth > screenWidth) {
+      clampedWidth = screenWidth - clampedX;
+      wasClamped = true;
+    }
+    if (clampedY + clampedHeight > screenHeight) {
+      clampedHeight = screenHeight - clampedY;
+      wasClamped = true;
+    }
+
+    // Ensure even dimensions for video encoding
+    clampedWidth = clampedWidth % 2 === 0 ? clampedWidth : clampedWidth - 1;
+    clampedHeight = clampedHeight % 2 === 0 ? clampedHeight : clampedHeight - 1;
+
+    // Final sanity check
+    if (clampedWidth <= 0 || clampedHeight <= 0) {
+      throw new RegionOutOfBoundsError(
+        `Region has no valid area after clamping. Width: ${clampedWidth}, Height: ${clampedHeight}`,
+        { region, screenBounds, clamped: { x: clampedX, y: clampedY, width: clampedWidth, height: clampedHeight } }
+      );
+    }
+
+    return {
+      x: clampedX,
+      y: clampedY,
+      width: clampedWidth,
+      height: clampedHeight,
+      wasClamped,
+    };
   }
 
   async getScreenResolution() {
@@ -100,23 +195,14 @@ class X11Capture extends BaseCapture {
     return screen.getPrimaryDisplay();
   }
 
-  /**
-   * Builds X11-specific video arguments
-   */
   async buildVideoArgs() {
     const resolution = await this.getScreenResolution();
 
-    // If region is selected, use it; otherwise, record entire screen
     let size, offset;
     if (this.region && this.region.width > 0 && this.region.height > 0) {
-      size = `${this.region.width}x${this.region.height}`;
-
-      // x11grab uses absolute X11 coordinates
-      // Electron may normalize coordinates differently
       const x11Bounds = await this.getX11ScreenBounds();
       const electronBounds = await this.getElectronScreenBounds();
 
-      // Find which display contains the selection
       const targetDisplay = await this.findDisplayForCoordinates(
         this.region.x,
         this.region.y
@@ -126,43 +212,38 @@ class X11Capture extends BaseCapture {
         JSON.stringify(targetDisplay.bounds)
       );
 
-      // Electron and X11 use absolute coordinates of virtual screen
-      // Coordinates should already be correct
-      let adjustedX = this.region.x;
-      let adjustedY = this.region.y;
+      const screenBounds = {
+        width: targetDisplay.bounds.width,
+        height: targetDisplay.bounds.height,
+      };
 
-      // Check if selection is inside any display
-      const { screen } = require("electron");
-      const displays = screen.getAllDisplays();
-      let insideDisplay = false;
-      for (const display of displays) {
-        const b = display.bounds;
-        if (
-          adjustedX >= b.x &&
-          adjustedX < b.x + b.width &&
-          adjustedY >= b.y &&
-          adjustedY < b.y + b.height
-        ) {
-          insideDisplay = true;
-          console.log(
-            `[MAIN] [X11Capture] Selection is inside display: ${JSON.stringify(
-              b
-            )}`
-          );
-          break;
-        }
-      }
+      const relativeRegion = {
+        x: this.region.x - targetDisplay.bounds.x,
+        y: this.region.y - targetDisplay.bounds.y,
+        width: this.region.width,
+        height: this.region.height,
+      };
 
-      if (!insideDisplay) {
+      const clamped = X11Capture.validateAndClampRegion(relativeRegion, screenBounds);
+
+      if (clamped.wasClamped) {
         console.log(
-          `[MAIN] [X11Capture] WARNING: Selection is outside all displays!`
-        );
-        console.log(
-          `[MAIN] [X11Capture] This may indicate a problem with coordinates.`
+          `[MAIN] [X11Capture] Region was clamped to fit screen bounds:`,
+          JSON.stringify(clamped)
         );
       }
 
-      offset = `${adjustedX},${adjustedY}`;
+      const finalX = targetDisplay.bounds.x + clamped.x;
+      const finalY = targetDisplay.bounds.y + clamped.y;
+
+      this.region.x = finalX;
+      this.region.y = finalY;
+      this.region.width = clamped.width;
+      this.region.height = clamped.height;
+
+      size = `${clamped.width}x${clamped.height}`;
+      offset = `${finalX},${finalY}`;
+
       console.log(`[MAIN] [X11Capture] Recording: ${size} at ${offset}`);
       console.log(
         `[MAIN] [X11Capture] Electron region:`,
@@ -174,7 +255,7 @@ class X11Capture extends BaseCapture {
         JSON.stringify(electronBounds)
       );
       console.log(
-        `[MAIN] [X11Capture] Final coordinates: x=${adjustedX}, y=${adjustedY}`
+        `[MAIN] [X11Capture] Final coordinates: x=${finalX}, y=${finalY}`
       );
     } else {
       size = `${resolution.width}x${resolution.height}`;
@@ -199,3 +280,4 @@ class X11Capture extends BaseCapture {
 }
 
 module.exports = X11Capture;
+module.exports.RegionOutOfBoundsError = RegionOutOfBoundsError;
