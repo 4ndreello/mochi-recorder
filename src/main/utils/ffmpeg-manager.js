@@ -64,16 +64,28 @@ class FFmpegManager extends EventEmitter {
       this.errorOutput = "";
 
       let hasRejected = false;
+      let hasResolved = false;
       let startupTimeout = null;
 
       const rejectOnce = (error) => {
-        if (!hasRejected) {
+        if (!hasRejected && !hasResolved) {
           hasRejected = true;
           this.isRunning = false;
           if (startupTimeout) {
             clearTimeout(startupTimeout);
           }
           reject(error);
+        }
+      };
+
+      const resolveOnce = () => {
+        if (!hasResolved && !hasRejected) {
+          hasResolved = true;
+          if (startupTimeout) {
+            clearTimeout(startupTimeout);
+          }
+          console.log(`[MAIN] [${this.label}] FFmpeg started successfully`);
+          resolve();
         }
       };
 
@@ -98,8 +110,10 @@ class FFmpegManager extends EventEmitter {
           return;
         }
 
+        // Resolve immediately when FFmpeg starts encoding frames
         if (output.includes("frame=") || output.includes("time=")) {
           this.emit("progress", output);
+          resolveOnce();
         }
       });
 
@@ -115,7 +129,7 @@ class FFmpegManager extends EventEmitter {
         this.process = null;
         this.emit("close", code, signal);
 
-        if (!hasRejected && code !== 0 && code !== null) {
+        if (!hasRejected && !hasResolved && code !== 0 && code !== null) {
           rejectOnce(new FFmpegStartupError(
             `FFmpeg exited with code ${code}`,
             this.errorOutput
@@ -123,16 +137,17 @@ class FFmpegManager extends EventEmitter {
         }
       });
 
+      // Fallback timeout - reduced from 500ms to 200ms
+      // This only triggers if FFmpeg doesn't output frame= or time= quickly
       startupTimeout = setTimeout(() => {
-        if (hasRejected) return;
+        if (hasRejected || hasResolved) return;
         
         if (this.isRunning && this.process && !this.process.killed) {
-          console.log(`[MAIN] [${this.label}] FFmpeg started successfully`);
-          resolve();
+          resolveOnce();
         } else if (!hasRejected) {
           rejectOnce(new FFmpegStartupError(`[${this.label}] FFmpeg did not start correctly`));
         }
-      }, 1500);
+      }, 200);
 
       this.process.on("exit", () => {
         if (startupTimeout) {
@@ -148,7 +163,7 @@ class FFmpegManager extends EventEmitter {
    * Falls back to SIGTERM/SIGKILL if process doesn't respond.
    */
   async stop(options = {}) {
-    const { gracePeriod = 10000, preStopDelay = 500 } = options;
+    const { gracePeriod = 10000, preStopDelay = 0 } = options;
 
     return new Promise((resolve) => {
       if (!this.process || !this.isRunning) {

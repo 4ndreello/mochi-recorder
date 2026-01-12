@@ -259,7 +259,7 @@ class BaseCapture {
   async stopRecording() {
     return this.ffmpegManager.stop({
       gracePeriod: 10000,
-      preStopDelay: 500,
+      preStopDelay: 0,
     });
   }
 }
