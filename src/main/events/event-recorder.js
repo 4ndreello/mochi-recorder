@@ -52,7 +52,9 @@ class EventRecorder {
       },
       stats: {
         eventCount: adjustedEvents.length,
-        clicks: adjustedEvents.filter(e => e.type === 'click').length,
+        mousedowns: adjustedEvents.filter(e => e.type === 'mousedown').length,
+        mouseups: adjustedEvents.filter(e => e.type === 'mouseup').length,
+        drags: adjustedEvents.filter(e => e.type === 'drag').length,
         moves: adjustedEvents.filter(e => e.type === 'move').length
       },
       events: adjustedEvents

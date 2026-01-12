@@ -107,7 +107,7 @@ class MouseTracker extends EventEmitter {
         
         const x = pointer.rootX;
         const y = pointer.rootY;
-        const buttons = pointer.mask;
+        const buttons = pointer.keyMask;
         
         const nowNs = process.hrtime.bigint();
         const elapsedMs = Number(nowNs - this.startTimeNs) / 1_000_000;
@@ -124,12 +124,14 @@ class MouseTracker extends EventEmitter {
           lastY = y;
         }
         
-        const leftButton = (buttons & 0x100) !== 0;
-        const wasLeftPressed = (this.lastButtonState & 0x100) !== 0;
-        
+        const buttonMask = buttons || 0;
+        const leftButton = (buttonMask & 0x100) !== 0;
+        const wasLeftPressed = ((this.lastButtonState || 0) & 0x100) !== 0;
+        const movedThisFrame = (lastX !== x || lastY !== y);
+
         if (leftButton && !wasLeftPressed) {
           callback({
-            type: 'click',
+            type: 'mousedown',
             x: x,
             y: y,
             button: 1,
@@ -137,8 +139,30 @@ class MouseTracker extends EventEmitter {
             timestamp: Date.now()
           });
         }
-        
-        this.lastButtonState = buttons;
+
+        if (!leftButton && wasLeftPressed) {
+          callback({
+            type: 'mouseup',
+            x: x,
+            y: y,
+            button: 1,
+            t: elapsedMs,
+            timestamp: Date.now()
+          });
+        }
+
+        if (leftButton && wasLeftPressed && movedThisFrame) {
+          callback({
+            type: 'drag',
+            x: x,
+            y: y,
+            button: 1,
+            t: elapsedMs,
+            timestamp: Date.now()
+          });
+        }
+
+        this.lastButtonState = buttonMask;
         
         setImmediate(queryPointer);
       });
