@@ -162,25 +162,12 @@ class BinaryResolver {
 
   static async getFFmpegPath() {
     const args = process.argv;
-    const systemPath = this.getSystemPath('ffmpeg');
     
     if (args.includes('--force-system-binary')) {
+      const systemPath = this.getSystemPath('ffmpeg');
       if (systemPath) {
         console.log('[BinaryResolver] Forcing system binary via command line');
         return systemPath;
-      }
-    }
-
-    if (systemPath) {
-      try {
-        const formats = execSync(`"${systemPath}" -formats 2>&1`, { encoding: 'utf-8' });
-        if (formats.includes('pulse')) {
-          console.log('[BinaryResolver] Using system FFmpeg (has pulse support)');
-          this.cachedPaths['ffmpeg'] = systemPath;
-          return systemPath;
-        }
-      } catch (e) {
-        console.warn('[BinaryResolver] Error checking system FFmpeg formats:', e.message);
       }
     }
 
@@ -189,8 +176,14 @@ class BinaryResolver {
 
   static async getFFprobePath() {
     const systemPath = this.getSystemPath('ffprobe');
-    if (systemPath && this.cachedPaths['ffmpeg'] && !this.cachedPaths['ffmpeg'].includes('.config/mochi')) {
-      return systemPath;
+    if (systemPath && this.cachedPaths['ffmpeg']) {
+      const downloadedFfmpegPath = this.getDownloadedPath('ffmpeg');
+      const isUsingDownloadedFfmpeg = downloadedFfmpegPath && 
+        path.resolve(this.cachedPaths['ffmpeg']) === path.resolve(downloadedFfmpegPath);
+      
+      if (!isUsingDownloadedFfmpeg) {
+        return systemPath;
+      }
     }
     return this.resolveBinary('ffprobe');
   }

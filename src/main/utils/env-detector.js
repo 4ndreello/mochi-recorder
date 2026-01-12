@@ -38,36 +38,37 @@ async function detectEnvironment() {
 function detectAudioBackend(ffmpegPath) {
   if (!ffmpegPath) return 'pulse'; // Default to pulse if path unknown
 
-  // 1. Test if FFmpeg supports pulse
+  // Get FFmpeg formats once and reuse for all checks
+  let formats = '';
   try {
-    const formats = execSync(`"${ffmpegPath}" -formats 2>&1`, { encoding: 'utf-8', timeout: 5000 });
-    const hasPulse = formats.includes('pulse');
-    
-    if (hasPulse) {
-      // Verify if PulseAudio is actually running
-      try {
-        execSync('pactl info', { stdio: 'ignore', timeout: 2000 });
-        console.log('[EnvDetector] Audio backend: pulse (supported by FFmpeg and running)');
-        return 'pulse';
-      } catch (e) {
-        console.log('[EnvDetector] PulseAudio not running, falling back to alsa');
-      }
-    }
+    formats = execSync(`"${ffmpegPath}" -formats 2>&1`, { encoding: 'utf-8', timeout: 5000 });
   } catch (e) {
     console.warn('[EnvDetector] Error checking FFmpeg formats:', e.message);
+    return null;
   }
 
-  // 2. Fallback to ALSA (always available on Linux)
-  try {
-    const formats = execSync(`"${ffmpegPath}" -formats 2>&1`, { encoding: 'utf-8', timeout: 5000 });
-    if (formats.includes('alsa')) {
-      console.log('[EnvDetector] Audio backend: alsa');
-      return 'alsa';
+  const hasPulse = formats.includes('pulse');
+  const hasAlsa = formats.includes('alsa');
+
+  // 1. Try PulseAudio first (preferred)
+  if (hasPulse) {
+    try {
+      execSync('pactl info', { stdio: 'ignore', timeout: 2000 });
+      console.log('[EnvDetector] Audio backend: pulse (supported by FFmpeg and running)');
+      return 'pulse';
+    } catch (e) {
+      console.log('[EnvDetector] PulseAudio not running, checking alsa fallback');
     }
-  } catch (e) {}
+  }
+
+  // 2. Fallback to ALSA
+  if (hasAlsa) {
+    console.log('[EnvDetector] Audio backend: alsa');
+    return 'alsa';
+  }
 
   console.warn('[EnvDetector] No suitable audio backend found in FFmpeg');
-  return null; // No audio
+  return null;
 }
 
 function getSystemAudioMonitor() {

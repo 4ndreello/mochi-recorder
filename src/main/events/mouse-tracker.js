@@ -129,7 +129,6 @@ class MouseTracker extends EventEmitter {
         const wasLeftPressed = ((this.lastButtonState || 0) & 0x100) !== 0;
         const movedThisFrame = (lastX !== x || lastY !== y);
 
-        // Detectar mousedown (botão pressionado)
         if (leftButton && !wasLeftPressed) {
           callback({
             type: 'mousedown',
@@ -141,7 +140,6 @@ class MouseTracker extends EventEmitter {
           });
         }
 
-        // Detectar mouseup (botão solto)
         if (!leftButton && wasLeftPressed) {
           callback({
             type: 'mouseup',
@@ -153,8 +151,6 @@ class MouseTracker extends EventEmitter {
           });
         }
 
-        // Detectar drag (movimento enquanto segura o botão)
-        // Precisa verificar movimento ANTES de atualizar lastX/lastY
         if (leftButton && wasLeftPressed && movedThisFrame) {
           callback({
             type: 'drag',
