@@ -2,27 +2,25 @@ const { spawn } = require("child_process");
 const { EventEmitter } = require("events");
 const BinaryResolver = require("./binary-resolver");
 
-/**
- * FFmpegManager - Centralized FFmpeg process management
- *
- * Handles spawning, monitoring, and graceful termination of FFmpeg processes.
- * Designed to fix audio cutting issues by ensuring proper buffer flushing
- * before process termination.
- *
- * @param {string} label - Label for logging (e.g., "Recording", "Processing")
- *
- * @method start(args) - Starts FFmpeg process, returns Promise<void>
- * @method stop(options) - Graceful shutdown with SIGINT, options: { gracePeriod, preStopDelay }
- * @method run(args) - Runs FFmpeg command to completion, returns Promise<void>
- * @method kill() - Force kills FFmpeg process (emergency only)
- * @method isActive() - Returns boolean if process is running
- * @method getErrorOutput() - Returns accumulated stderr output
- *
- * @emits stderr - FFmpeg stderr output
- * @emits progress - Progress updates (frame=, time=)
- * @emits close - Process closed (code, signal)
- * @emits error - Process error
- */
+const FATAL_ERROR_PATTERNS = [
+  { pattern: /outside the screen size/i, message: "Capture area is outside screen bounds" },
+  { pattern: /Invalid argument/i, message: "Invalid FFmpeg argument" },
+  { pattern: /not divisible by 2/i, message: "Video dimensions must be even numbers" },
+  { pattern: /No such file or directory/i, message: "File or device not found" },
+  { pattern: /Permission denied/i, message: "Permission denied" },
+  { pattern: /Device or resource busy/i, message: "Device is busy" },
+  { pattern: /Cannot open display/i, message: "Cannot open X11 display" },
+  { pattern: /Connection refused/i, message: "Connection refused" },
+];
+
+class FFmpegStartupError extends Error {
+  constructor(message, ffmpegOutput = "") {
+    super(message);
+    this.name = "FFmpegStartupError";
+    this.ffmpegOutput = ffmpegOutput;
+  }
+}
+
 class FFmpegManager extends EventEmitter {
   constructor(label = "FFmpeg") {
     super();
@@ -33,10 +31,19 @@ class FFmpegManager extends EventEmitter {
     this.ffmpegPath = null;
   }
 
+  static detectFatalError(output) {
+    for (const { pattern, message } of FATAL_ERROR_PATTERNS) {
+      if (pattern.test(output)) {
+        return message;
+      }
+    }
+    return null;
+  }
+
   async start(args) {
     return new Promise(async (resolve, reject) => {
       if (this.isRunning) {
-        reject(new Error(`[${this.label}] FFmpeg process already running`));
+        reject(new FFmpegStartupError(`[${this.label}] FFmpeg process already running`));
         return;
       }
 
@@ -46,7 +53,7 @@ class FFmpegManager extends EventEmitter {
         console.log(`[MAIN] [${this.label}] Using FFmpeg: ${this.ffmpegPath}`);
       } catch (err) {
         console.error(`[MAIN] [${this.label}] Failed to resolve FFmpeg binary: ${err.message}`);
-        reject(new Error(`[${this.label}] Failed to resolve FFmpeg binary: ${err.message}`));
+        reject(new FFmpegStartupError(`[${this.label}] Failed to resolve FFmpeg binary: ${err.message}`));
         return;
       }
 
@@ -56,32 +63,39 @@ class FFmpegManager extends EventEmitter {
       this.isRunning = true;
       this.errorOutput = "";
 
-      let hasError = false;
+      let hasRejected = false;
       let startupTimeout = null;
+
+      const rejectOnce = (error) => {
+        if (!hasRejected) {
+          hasRejected = true;
+          this.isRunning = false;
+          if (startupTimeout) {
+            clearTimeout(startupTimeout);
+          }
+          reject(error);
+        }
+      };
 
       this.process.on("error", (error) => {
         console.error(`[MAIN] [${this.label}] FFmpeg spawn error:`, error);
-        this.isRunning = false;
         this.emit("error", error);
-        reject(error);
+        rejectOnce(new FFmpegStartupError(`FFmpeg spawn error: ${error.message}`));
       });
 
       this.process.stderr.on("data", (data) => {
         const output = data.toString();
         this.errorOutput += output;
-
         this.emit("stderr", output);
 
-        if (
-          output.includes("Error") ||
-          output.includes("error") ||
-          output.includes("not divisible by 2") ||
-          output.includes("Invalid")
-        ) {
-          if (!output.includes("frame=") && !output.includes("time=")) {
-            console.error(`[MAIN] [${this.label}] FFmpeg error:`, output.trim());
-            hasError = true;
+        const fatalError = FFmpegManager.detectFatalError(output);
+        if (fatalError) {
+          console.error(`[MAIN] [${this.label}] Fatal FFmpeg error detected: ${fatalError}`);
+          rejectOnce(new FFmpegStartupError(fatalError, this.errorOutput));
+          if (this.process && !this.process.killed) {
+            this.process.kill("SIGKILL");
           }
+          return;
         }
 
         if (output.includes("frame=") || output.includes("time=")) {
@@ -100,17 +114,23 @@ class FFmpegManager extends EventEmitter {
         this.isRunning = false;
         this.process = null;
         this.emit("close", code, signal);
+
+        if (!hasRejected && code !== 0 && code !== null) {
+          rejectOnce(new FFmpegStartupError(
+            `FFmpeg exited with code ${code}`,
+            this.errorOutput
+          ));
+        }
       });
 
       startupTimeout = setTimeout(() => {
-        if (hasError) {
-          const errorMsg = this.errorOutput.substring(0, 500);
-          reject(new Error(`[${this.label}] FFmpeg startup failed: ${errorMsg}`));
-        } else if (this.isRunning && this.process && !this.process.killed) {
+        if (hasRejected) return;
+        
+        if (this.isRunning && this.process && !this.process.killed) {
           console.log(`[MAIN] [${this.label}] FFmpeg started successfully`);
           resolve();
-        } else {
-          reject(new Error(`[${this.label}] FFmpeg did not start correctly`));
+        } else if (!hasRejected) {
+          rejectOnce(new FFmpegStartupError(`[${this.label}] FFmpeg did not start correctly`));
         }
       }, 1500);
 
@@ -256,3 +276,5 @@ class FFmpegManager extends EventEmitter {
 }
 
 module.exports = FFmpegManager;
+module.exports.FFmpegStartupError = FFmpegStartupError;
+module.exports.FATAL_ERROR_PATTERNS = FATAL_ERROR_PATTERNS;
