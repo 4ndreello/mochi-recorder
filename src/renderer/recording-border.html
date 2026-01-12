@@ -189,8 +189,8 @@
     }
 
     function updateBoxPosition() {
-      recordingBox.style.left = (currentRegion.x - windowOffset.x) + 'px';
-      recordingBox.style.top = (currentRegion.y - windowOffset.y) + 'px';
+      recordingBox.style.left = currentRegion.x + 'px';
+      recordingBox.style.top = currentRegion.y + 'px';
       recordingBox.style.width = currentRegion.width + 'px';
       recordingBox.style.height = currentRegion.height + 'px';
       updateSizeInfo();
@@ -243,8 +243,16 @@
       const deltaY = e.screenY - dragStartPos.y;
 
       if (isDragging) {
-        currentRegion.x = initialRegion.x + deltaX;
-        currentRegion.y = initialRegion.y + deltaY;
+        // Calculate new position with screen bounds checking
+        const newX = initialRegion.x + deltaX;
+        const newY = initialRegion.y + deltaY;
+        
+        // Constrain to screen bounds (window covers all displays)
+        const maxX = Math.max(0, window.innerWidth - currentRegion.width);
+        const maxY = Math.max(0, window.innerHeight - currentRegion.height);
+        
+        currentRegion.x = Math.min(Math.max(0, newX), maxX);
+        currentRegion.y = Math.min(Math.max(0, newY), maxY);
       } else if (isResizing) {
         const minSize = 50;
 
@@ -301,9 +309,10 @@
         isResizing = false;
         activeHandle = null;
         hideSizeInfo();
+        // Send absolute coordinates back to main process
         ipcRenderer.send('region-changed', {
-          x: Math.round(currentRegion.x),
-          y: Math.round(currentRegion.y),
+          x: Math.round(currentRegion.x + windowOffset.x),
+          y: Math.round(currentRegion.y + windowOffset.y),
           width: Math.round(currentRegion.width),
           height: Math.round(currentRegion.height)
         });
@@ -312,32 +321,25 @@
 
     ipcRenderer.on('set-region', (event, region) => {
       if (region && region.width > 0 && region.height > 0) {
+        // Fetch window bounds once to convert back to absolute coords when sending region-changed
         ipcRenderer.invoke('get-border-window-bounds').then(bounds => {
-          if (bounds) {
-            windowOffset = { x: bounds.x, y: bounds.y };
-          } else {
-            windowOffset = { x: 0, y: 0 };
-          }
-          currentRegion = {
-            x: region.x + windowOffset.x,
-            y: region.y + windowOffset.y,
-            width: region.width,
-            height: region.height
-          };
-          updateBoxPosition();
-          recordingBox.style.display = 'block';
-          recordingBox.classList.add('ready');
-          isReady = true;
-          setHandlesVisible(true);
+          windowOffset = bounds ? { x: bounds.x, y: bounds.y } : { x: 0, y: 0 };
         }).catch(() => {
           windowOffset = { x: 0, y: 0 };
-          currentRegion = { x: region.x, y: region.y, width: region.width, height: region.height };
-          updateBoxPosition();
-          recordingBox.style.display = 'block';
-          recordingBox.classList.add('ready');
-          isReady = true;
-          setHandlesVisible(true);
         });
+        
+        // Use coordinates directly - they are already window-relative
+        currentRegion = {
+          x: region.x,
+          y: region.y,
+          width: region.width,
+          height: region.height
+        };
+        updateBoxPosition();
+        recordingBox.style.display = 'block';
+        recordingBox.classList.add('ready');
+        isReady = true;
+        setHandlesVisible(true);
       }
     });
 
@@ -347,8 +349,10 @@
         recordingBox.classList.add('ready');
         isReady = true;
         setHandlesVisible(true);
-      } else if (state === 'recording') {
-        recordingBox.classList.add('recording');
+      } else if (state === 'starting' || state === 'recording') {
+        if (state === 'recording') {
+          recordingBox.classList.add('recording');
+        }
         isReady = false;
         setHandlesVisible(false);
       }

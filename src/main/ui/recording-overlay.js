@@ -226,7 +226,7 @@ class RecordingOverlay {
   setRecordingState(state) {
     if (this.borderWindow && !this.borderWindow.isDestroyed()) {
       this.borderWindow.webContents.send("set-recording-state", state);
-      
+
       if (state === "recording") {
         this.borderWindow.setIgnoreMouseEvents(true);
       } else {
