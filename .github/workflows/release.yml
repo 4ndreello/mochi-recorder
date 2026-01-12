@@ -15,6 +15,32 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      - name: Get package version
+        id: package_version
+        run: echo "version=v$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+
+      - name: Check if release already exists
+        id: check_release
+        run: |
+          VERSION=${{ steps.package_version.outputs.version }}
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/tags/${VERSION}")
+          
+          if [ "$HTTP_STATUS" = "200" ]; then
+            echo "Release ${VERSION} already exists!"
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "Release ${VERSION} does not exist, proceeding..."
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Fail if release exists
+        if: steps.check_release.outputs.exists == 'true'
+        run: |
+          echo "::error::Release ${{ steps.package_version.outputs.version }} already exists. Please bump the version in package.json before pushing."
+          exit 1
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
