@@ -326,6 +326,23 @@ async function startCapture() {
     isRecording = false;
     isStartingRecording = false;
 
+    if (mouseTracker) {
+      try {
+        mouseTracker.stop();
+      } catch (e) {
+        console.error("[MAIN] Error stopping mouse tracker during cleanup:", e);
+      }
+      mouseTracker = null;
+    }
+
+    if (eventRecorder) {
+      eventRecorder = null;
+    }
+
+    if (captureManager) {
+      captureManager = null;
+    }
+
     if (recordingOverlay) {
       recordingOverlay.notifyError(error.message);
     }
