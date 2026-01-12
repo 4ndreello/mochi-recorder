@@ -198,6 +198,81 @@ class CursorVideoGenerator {
     return { active: false };
   }
 
+  /**
+   * Detecta se o botão está sendo segurado (hold) no momento atual
+   * Retorna informações sobre o estado do hold incluindo duração
+   */
+  isHoldActive(timeMs, mousedowns, mouseups) {
+    // Encontrar o mousedown mais recente antes do tempo atual
+    let activeDown = null;
+    for (const down of mousedowns) {
+      if (down.t <= timeMs) {
+        activeDown = down;
+      } else {
+        break;
+      }
+    }
+
+    if (!activeDown) {
+      return { active: false };
+    }
+
+    // Verificar se há um mouseup depois desse mousedown e antes do tempo atual
+    for (const up of mouseups) {
+      if (up.t > activeDown.t && up.t <= timeMs) {
+        return { active: false };
+      }
+    }
+
+    // Ainda está segurando - calcular duração
+    const holdDuration = timeMs - activeDown.t;
+    return {
+      active: true,
+      startTime: activeDown.t,
+      duration: holdDuration,
+      x: activeDown.x,
+      y: activeDown.y
+    };
+  }
+
+  /**
+   * Desenha efeito visual de "hold" - círculo pulsante enquanto segura o botão
+   */
+  drawHoldEffect(ctx, x, y, holdDuration) {
+    const maxPulseTime = 400; // Tempo para uma pulsação completa
+    const pulseProgress = (holdDuration % maxPulseTime) / maxPulseTime;
+
+    // Efeito de pulsação (cresce e diminui)
+    const pulse = Math.sin(pulseProgress * Math.PI);
+
+    // Círculo interno (mais intenso quanto mais tempo segura)
+    const holdIntensity = Math.min(holdDuration / 500, 1); // Atinge intensidade máxima em 500ms
+    const baseRadius = 15 + holdIntensity * 10;
+    const radius = baseRadius + pulse * 8;
+
+    ctx.save();
+
+    // Glow externo
+    const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius * 1.5);
+    gradient.addColorStop(0, `rgba(100, 180, 255, ${0.4 * holdIntensity})`);
+    gradient.addColorStop(0.5, `rgba(100, 180, 255, ${0.2 * holdIntensity})`);
+    gradient.addColorStop(1, 'rgba(100, 180, 255, 0)');
+
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(x, y, radius * 1.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Círculo principal
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(100, 180, 255, ${0.6 + pulse * 0.3})`;
+    ctx.lineWidth = 2 + pulse;
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
   findExactPosition(events, timeMs) {
     if (events.length === 0) return { x: 0, y: 0 };
     
@@ -247,19 +322,19 @@ class CursorVideoGenerator {
     ctx.restore();
   }
 
-  drawMotionBlurredCursor(ctx, moves, region, currentTimeMs, frameInterval) {
+  drawMotionBlurredCursor(ctx, moves, region, currentTimeMs, frameInterval, holdScale = 1.0) {
     if (!this.motionBlurEnabled) {
       const pos = this.interpolatePositionSpline(moves, currentTimeMs);
       const screenX = pos.x - region.x;
       const screenY = pos.y - region.y;
-      this.drawCursor(ctx, screenX, screenY, 1.0, 1.0);
+      this.drawCursor(ctx, screenX, screenY, 1.0, holdScale);
       return { x: screenX, y: screenY };
     }
-    
+
     const samples = this.motionBlurSamples;
     const subFrameInterval = frameInterval / samples;
     const positions = [];
-    
+
     for (let i = 0; i < samples; i++) {
       const sampleTime = currentTimeMs - (frameInterval * 0.8) + (subFrameInterval * i);
       const pos = this.interpolatePositionSpline(moves, sampleTime);
@@ -268,27 +343,27 @@ class CursorVideoGenerator {
         y: pos.y - region.y
       });
     }
-    
+
     const totalDistance = positions.reduce((sum, pos, i) => {
       if (i === 0) return 0;
       const prev = positions[i - 1];
       return sum + Math.sqrt(Math.pow(pos.x - prev.x, 2) + Math.pow(pos.y - prev.y, 2));
     }, 0);
-    
+
     const isMovingFast = totalDistance > 3;
-    
+
     if (isMovingFast) {
       for (let i = 0; i < samples - 1; i++) {
         const progress = (i + 1) / samples;
         const alpha = progress * 0.25;
-        const scale = 0.7 + progress * 0.3;
+        const scale = (0.7 + progress * 0.3) * holdScale;
         this.drawCursor(ctx, positions[i].x, positions[i].y, alpha, scale);
       }
     }
-    
+
     const finalPos = positions[positions.length - 1];
-    this.drawCursor(ctx, finalPos.x, finalPos.y, 1.0, 1.0);
-    
+    this.drawCursor(ctx, finalPos.x, finalPos.y, 1.0, holdScale);
+
     return finalPos;
   }
 
@@ -313,9 +388,10 @@ class CursorVideoGenerator {
     const duration = session.duration || 0;
     const region = this.getRegion();
     const events = this.getEvents();
-    const rawMoves = events.filter(e => e.type === 'move' || e.type === 'click');
+    const rawMoves = events.filter(e => e.type === 'move' || e.type === 'mousedown' || e.type === 'drag');
     const moves = this.smoothEvents(rawMoves, 7);
-    const clicks = events.filter(e => e.type === 'click');
+    const mousedowns = events.filter(e => e.type === 'mousedown');
+    const mouseups = events.filter(e => e.type === 'mouseup');
     const videoStartOffset = this.getVideoStartOffset();
 
     if (moves.length === 0) {
@@ -382,17 +458,42 @@ class CursorVideoGenerator {
 
         const frameTimeMs = frameCount * frameInterval;
         const eventTimeMs = frameTimeMs;
-        
+
         ctx.clearRect(0, 0, this.width, this.height);
 
-        const clickState = this.isClickActive(eventTimeMs, clicks);
-        if (clickState.active) {
-          const clickX = clickState.x - region.x;
-          const clickY = clickState.y - region.y;
-          this.drawClickRipple(ctx, clickX, clickY, clickState.progress);
+        // Verificar estado de hold (segurando o botão)
+        const holdState = this.isHoldActive(eventTimeMs, mousedowns, mouseups);
+
+        // Desenhar efeito de hold se estiver segurando
+        if (holdState.active) {
+          // Pegar posição atual do cursor para o efeito de hold
+          const cursorPos = this.interpolatePositionSpline(moves, eventTimeMs);
+          const holdX = cursorPos.x - region.x;
+          const holdY = cursorPos.y - region.y;
+          this.drawHoldEffect(ctx, holdX, holdY, holdState.duration);
         }
 
-        this.drawMotionBlurredCursor(ctx, moves, region, eventTimeMs, frameInterval);
+        // Desenhar ripple no mousedown (efeito de click instantâneo)
+        for (const down of mousedowns) {
+          const clickStart = down.t;
+          const clickEnd = down.t + 300;
+          if (eventTimeMs >= clickStart && eventTimeMs <= clickEnd) {
+            const progress = (eventTimeMs - clickStart) / 300;
+            const clickX = down.x - region.x;
+            const clickY = down.y - region.y;
+            this.drawClickRipple(ctx, clickX, clickY, progress);
+          }
+        }
+
+        // Calcular scale do cursor baseado no hold (cursor cresce levemente enquanto segura)
+        let cursorScale = 1.0;
+        if (holdState.active) {
+          // Cursor cresce até 1.15x em 300ms de hold
+          const scaleProgress = Math.min(holdState.duration / 300, 1);
+          cursorScale = 1.0 + scaleProgress * 0.15;
+        }
+
+        this.drawMotionBlurredCursor(ctx, moves, region, eventTimeMs, frameInterval, cursorScale);
 
         const buffer = canvas.toBuffer('raw');
         const canWrite = ffmpeg.stdin.write(buffer);
