@@ -139,6 +139,10 @@ ipcMain.on("stop-recording-clicked", () => {
 });
 
 ipcMain.on("start-recording-clicked", () => {
+  // Immediately disable resize/drag handles while FFmpeg starts
+  if (recordingOverlay) {
+    recordingOverlay.setRecordingState("starting");
+  }
   startCapture();
 });
 
