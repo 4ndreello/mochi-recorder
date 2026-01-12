@@ -1199,7 +1199,7 @@
       });
 
       ipcRenderer.on("position-side", (event, side) => {
-        if (side === "bottom") {
+        if (side === "bottom" || side === "inside-top") {
           container.classList.add("position-bottom");
         }
       });

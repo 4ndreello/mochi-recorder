@@ -18,22 +18,34 @@ class RecordingOverlay {
     const screenBounds = display.bounds;
 
     let x = region.x + Math.floor(region.width / 2) - Math.floor(width / 2);
+    const minX = screenBounds.x + 10;
+    const maxX = screenBounds.x + screenBounds.width - width - 10;
+    x = Math.max(minX, Math.min(x, maxX));
+
+    // Try TOP outside
     let y = region.y - height - this.controlsGap;
     let side = "top";
 
     if (y < screenBounds.y) {
+      // Try BOTTOM outside
       y = region.y + region.height + this.controlsGap;
       side = "bottom";
 
       if (y + height > screenBounds.y + screenBounds.height) {
-        y = region.y + region.height - height - this.controlsGap;
-        side = "inside";
+        // Doesn't fit outside. Position inside the region.
+        // Choose inside-top or inside-bottom based on region position on screen
+        const screenCenterY = screenBounds.y + screenBounds.height / 2;
+        if (region.y < screenCenterY) {
+          // Region is in upper half - place controls at top inside
+          y = region.y + this.controlsGap;
+          side = "inside-top";
+        } else {
+          // Region is in lower half - place controls at bottom inside
+          y = region.y + region.height - height - this.controlsGap;
+          side = "inside-bottom";
+        }
       }
     }
-
-    const minX = screenBounds.x + 10;
-    const maxX = screenBounds.x + screenBounds.width - width - 10;
-    x = Math.max(minX, Math.min(x, maxX));
 
     return { x: Math.round(x), y: Math.round(y), side };
   }
@@ -175,6 +187,7 @@ class RecordingOverlay {
   setupIpcHandlers() {
     ipcMain.removeAllListeners("expand-controls");
     ipcMain.removeAllListeners("enable-window-drag");
+    ipcMain.removeAllListeners("set-ignore-mouse-events");
 
     ipcMain.on("expand-controls", () => {
       this.expandControls();
@@ -183,6 +196,12 @@ class RecordingOverlay {
     ipcMain.on("enable-window-drag", () => {
       if (this.controlsWindow && !this.controlsWindow.isDestroyed()) {
         this.controlsWindow.setMovable(true);
+      }
+    });
+
+    ipcMain.on("set-ignore-mouse-events", (event, ignore, options) => {
+      if (this.borderWindow && !this.borderWindow.isDestroyed()) {
+        this.borderWindow.setIgnoreMouseEvents(ignore, options || {});
       }
     });
   }
@@ -207,6 +226,12 @@ class RecordingOverlay {
   setRecordingState(state) {
     if (this.borderWindow && !this.borderWindow.isDestroyed()) {
       this.borderWindow.webContents.send("set-recording-state", state);
+      
+      if (state === "recording") {
+        this.borderWindow.setIgnoreMouseEvents(true);
+      } else {
+        this.borderWindow.setIgnoreMouseEvents(false);
+      }
     }
   }
 
