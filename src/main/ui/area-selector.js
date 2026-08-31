@@ -99,7 +99,12 @@ class AreaSelector {
       );
 
       if (sourceWindow) {
-        const actualBounds = sourceWindow.window.getBounds();
+        // On Wayland the compositor controls window placement, so
+        // window.getBounds() does not reflect the requested position.
+        // Use the display bounds the window was created for instead.
+        const actualBounds =
+          sourceWindow.targetBounds ?? sourceWindow.window.getBounds();
+
 
         // Convert relative coordinates to absolute
         const absoluteSelection = {

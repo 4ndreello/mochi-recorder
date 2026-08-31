@@ -23,6 +23,8 @@ class BaseCapture {
     this.fps = 30;
     this.quality = "medium";
     this.drawMouse = false;
+    this.videoInputStream = null;
+    this.handlesRegionNatively = false;
   }
 
   setRegion(region) {
@@ -169,7 +171,12 @@ class BaseCapture {
     let filterComplex = null;
     const videoFilters = [];
 
-    if (this.region && this.region.width > 0 && this.region.height > 0) {
+    if (
+      !this.handlesRegionNatively &&
+      this.region &&
+      this.region.width > 0 &&
+      this.region.height > 0
+    ) {
       videoFilters.push(
         `[${videoInputIndex}:v]crop=${this.region.width}:${this.region.height}:${this.region.x}:${this.region.y}[vout]`
       );
@@ -252,8 +259,9 @@ class BaseCapture {
     }
 
     args.push("-y", outputPath);
-
-    return this.ffmpegManager.start(args);
+    return this.ffmpegManager.start(args, {
+      stdinStream: this.videoInputStream || null,
+    });
   }
 
   async stopRecording() {

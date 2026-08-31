@@ -16,6 +16,9 @@ class X11Capture extends BaseCapture {
   constructor() {
     super();
     this.display = process.env.DISPLAY || ":0";
+    // buildVideoArgs grabs exactly this.region via -s/-i offset, so the
+    // base class must not apply a crop filter on top (double crop)
+    this.handlesRegionNatively = true;
   }
 
   /**
