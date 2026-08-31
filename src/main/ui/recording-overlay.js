@@ -1,5 +1,6 @@
 const { BrowserWindow, screen, ipcMain } = require("electron");
 const path = require("path");
+const { execSync } = require("child_process");
 
 class RecordingOverlay {
   constructor() {
@@ -49,28 +50,39 @@ class RecordingOverlay {
 
     return { x: Math.round(x), y: Math.round(y), side };
   }
-
   create(region, onReadyCallback = null) {
     this.region = region;
     this.onReadyCallback = onReadyCallback;
     this.regionAbsolute = region;
 
-    const displays = screen.getAllDisplays();
-    let minX = Infinity,
-      minY = Infinity,
-      maxX = -Infinity,
-      maxY = -Infinity;
-
-    displays.forEach((display) => {
-      const bounds = display.bounds;
-      minX = Math.min(minX, bounds.x);
-      minY = Math.min(minY, bounds.y);
-      maxX = Math.max(maxX, bounds.x + bounds.width);
-      maxY = Math.max(maxY, bounds.y + bounds.height);
-    });
-
-    const totalWidth = maxX - minX;
-    const totalHeight = maxY - minY;
+    const isWayland = !!process.env.HYPRLAND_INSTANCE_SIGNATURE || process.env.XDG_SESSION_TYPE === "wayland";
+    let minX, minY, totalWidth, totalHeight;
+    // On Wayland/Hyprland a single window cannot span all outputs - compositor tiles/clamps it.
+    // Use the display containing the region instead; still allows dragging within that monitor.
+    if (isWayland) {
+      const display = screen.getDisplayMatching(region);
+      const b = display.bounds;
+      minX = b.x;
+      minY = b.y;
+      totalWidth = b.width;
+      totalHeight = b.height;
+    } else {
+      const displays = screen.getAllDisplays();
+      minX = Infinity;
+      let minY2 = Infinity;
+      let maxX = -Infinity;
+      let maxY = -Infinity;
+      displays.forEach((display) => {
+        const bounds = display.bounds;
+        minX = Math.min(minX, bounds.x);
+        minY2 = Math.min(minY2, bounds.y);
+        maxX = Math.max(maxX, bounds.x + bounds.width);
+        maxY = Math.max(maxY, bounds.y + bounds.height);
+      });
+      minY = minY2;
+      totalWidth = maxX - minX;
+      totalHeight = maxY - minY;
+    }
 
     this.borderWindow = new BrowserWindow({
       width: totalWidth,
@@ -106,6 +118,9 @@ class RecordingOverlay {
       visibleOnFullScreen: true,
     });
     this.borderWindow.setAlwaysOnTop(true, "screen-saver");
+    // Click-through by default: transparent areas must not block desktop.
+    // Handles will temporarily disable ignore via IPC from renderer.
+    this.borderWindow.setIgnoreMouseEvents(true, { forward: true });
 
     this.expectedBounds = {
       x: minX,
@@ -115,20 +130,26 @@ class RecordingOverlay {
     };
 
     this.borderWindow.webContents.on("did-finish-load", () => {
-      this.borderWindow.setPosition(minX, minY);
-      this.borderWindow.setSize(totalWidth, totalHeight);
+      // Hyprland may have clamped the window; re-apply requested geometry
+      try { this.borderWindow.setPosition(minX, minY); } catch {}
+      try { this.borderWindow.setSize(totalWidth, totalHeight); } catch {}
 
       setTimeout(() => {
-        const actualBounds = this.borderWindow.getBounds();
+        let actualBounds;
+        try { actualBounds = this.borderWindow.getBounds(); } catch { actualBounds = this.expectedBounds; }
+        // On Wayland getBounds() may be clamped; prefer expected target for offset calc
+        const isClamped = actualBounds.width !== this.expectedBounds.width || actualBounds.height !== this.expectedBounds.height;
+        const base = isClamped ? this.expectedBounds : actualBounds;
         const adjustedRegion = {
-          x: this.regionAbsolute.x - actualBounds.x,
-          y: this.regionAbsolute.y - actualBounds.y,
+          x: this.regionAbsolute.x - base.x,
+          y: this.regionAbsolute.y - base.y,
           width: this.regionAbsolute.width,
           height: this.regionAbsolute.height,
         };
         this.borderWindow.webContents.send("set-region", adjustedRegion);
-      }, 50);
+      }, 80);
     });
+
 
     const controlsPos = this.calculateControlsPosition(
       region,
@@ -180,7 +201,7 @@ class RecordingOverlay {
     });
 
     this.setupIpcHandlers();
-
+    this._ensureHyprlandFloating();
     return this.borderWindow;
   }
 
@@ -201,9 +222,19 @@ class RecordingOverlay {
 
     ipcMain.on("set-ignore-mouse-events", (event, ignore, options) => {
       if (this.borderWindow && !this.borderWindow.isDestroyed()) {
-        this.borderWindow.setIgnoreMouseEvents(ignore, options || {});
+        const opts = options || { forward: true };
+        if (opts.forward === undefined) opts.forward = true;
+        this.borderWindow.setIgnoreMouseEvents(ignore, opts);
       }
     });
+  }
+
+  _ensureHyprlandFloating() {
+    if (!process.env.HYPRLAND_INSTANCE_SIGNATURE) return;
+    try {
+      execSync('hyprctl keyword windowrulev2 "float, title:^(Recording Border)$" 2>/dev/null', { timeout: 800, stdio: "ignore" });
+      execSync('hyprctl keyword windowrulev2 "float, title:^(Recording Controls)$" 2>/dev/null', { timeout: 800, stdio: "ignore" });
+    } catch {}
   }
 
   expandControls() {
@@ -227,11 +258,9 @@ class RecordingOverlay {
     if (this.borderWindow && !this.borderWindow.isDestroyed()) {
       this.borderWindow.webContents.send("set-recording-state", state);
 
-      if (state === "recording") {
-        this.borderWindow.setIgnoreMouseEvents(true);
-      } else {
-        this.borderWindow.setIgnoreMouseEvents(false);
-      }
+      // Always forward clicks: transparent areas must never block desktop.
+      // Handles will temporarily disable ignore via renderer IPC.
+      this.borderWindow.setIgnoreMouseEvents(true, { forward: true });
     }
   }
 
@@ -287,11 +316,11 @@ class RecordingOverlay {
 
   close() {
     if (this.borderWindow && !this.borderWindow.isDestroyed()) {
-      this.borderWindow.close();
+      try { this.borderWindow.destroy(); } catch { try { this.borderWindow.close(); } catch {} }
       this.borderWindow = null;
     }
     if (this.controlsWindow && !this.controlsWindow.isDestroyed()) {
-      this.controlsWindow.close();
+      try { this.controlsWindow.destroy(); } catch { try { this.controlsWindow.close(); } catch {} }
       this.controlsWindow = null;
     }
   }
@@ -300,10 +329,13 @@ class RecordingOverlay {
     this.region = region;
     this.regionAbsolute = region;
     if (this.borderWindow && !this.borderWindow.isDestroyed()) {
-      const bounds = this.borderWindow.getBounds();
+      let bounds;
+      try { bounds = this.borderWindow.getBounds(); } catch (e) { bounds = this.expectedBounds; }
+      const isClamped = bounds.width !== this.expectedBounds.width || bounds.height !== this.expectedBounds.height;
+      const base = isClamped ? this.expectedBounds : bounds;
       const adjustedRegion = {
-        x: region.x - bounds.x,
-        y: region.y - bounds.y,
+        x: region.x - base.x,
+        y: region.y - base.y,
         width: region.width,
         height: region.height,
       };

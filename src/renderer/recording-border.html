@@ -176,6 +176,12 @@
 
     recordingBox.style.display = 'none';
 
+    function setIgnore(ignore) {
+      try { ipcRenderer.send('set-ignore-mouse-events', ignore, { forward: true }); } catch {}
+    }
+    // Start as click-through: transparent window must not block desktop
+    setIgnore(true);
+
     function updateSizeInfo() {
       sizeInfo.textContent = `${Math.round(currentRegion.width)} × ${Math.round(currentRegion.height)}`;
     }
@@ -209,8 +215,17 @@
       } else {
         moveHandle.classList.add('hidden');
       }
+      // When handles are hidden (recording), keep click-through; when visible, default to click-through until hover
+      setIgnore(true);
     }
 
+    // Hovering handles / move area must capture clicks; otherwise forward to desktop
+    function bindHoverIgnore(el) {
+      el.addEventListener('mouseenter', () => { if (isReady) setIgnore(false); });
+      el.addEventListener('mouseleave', () => { if (!isDragging && !isResizing) setIgnore(true); });
+    }
+    bindHoverIgnore(moveHandle);
+    resizeHandles.forEach(bindHoverIgnore);
     moveHandle.addEventListener('mousedown', (e) => {
       if (!isReady) return;
       e.preventDefault();
@@ -219,6 +234,7 @@
       dragStartPos = { x: e.screenX, y: e.screenY };
       initialRegion = { ...currentRegion };
       showSizeInfo();
+      setIgnore(false);
       ipcRenderer.send('region-drag-start');
     });
 
@@ -232,10 +248,10 @@
         dragStartPos = { x: e.screenX, y: e.screenY };
         initialRegion = { ...currentRegion };
         showSizeInfo();
+        setIgnore(false);
         ipcRenderer.send('region-drag-start');
       });
     });
-
     document.addEventListener('mousemove', (e) => {
       if (!isDragging && !isResizing) return;
 
@@ -302,13 +318,13 @@
 
       updateBoxPosition();
     });
-
     document.addEventListener('mouseup', () => {
       if (isDragging || isResizing) {
         isDragging = false;
         isResizing = false;
         activeHandle = null;
         hideSizeInfo();
+        setIgnore(true);
         // Send absolute coordinates back to main process
         ipcRenderer.send('region-changed', {
           x: Math.round(currentRegion.x + windowOffset.x),

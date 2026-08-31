@@ -1,5 +1,7 @@
 const { BrowserWindow, screen, ipcMain } = require("electron");
 const path = require("path");
+const { execSync } = require("child_process");
+
 
 class AreaSelector {
   constructor() {
@@ -86,7 +88,7 @@ class AreaSelector {
     });
 
     this.setupIpcHandlers();
-
+    this._ensureHyprlandFloating();
     return this.windows.length > 0 ? this.windows[0].window : null;
   }
 
@@ -105,7 +107,6 @@ class AreaSelector {
         const actualBounds =
           sourceWindow.targetBounds ?? sourceWindow.window.getBounds();
 
-
         // Convert relative coordinates to absolute
         const absoluteSelection = {
           x: actualBounds.x + data.x,
@@ -121,10 +122,15 @@ class AreaSelector {
         });
 
         this.selection = absoluteSelection;
-        if (this.callback) {
-          this.callback(absoluteSelection);
-        }
+        // Close BEFORE callback to avoid double-overlay race:
+        // callback -> showRecordingOverlay creates borderWindow; if we
+        // callback first, both overlays are visible simultaneously
+        // (Hyprland keeps windows mapped briefly after close).
+        const cb = this.callback;
         this.close();
+        if (cb) {
+          cb(absoluteSelection);
+        }
       }
     };
 
@@ -136,10 +142,11 @@ class AreaSelector {
 
       if (sourceWindow) {
         console.log("[AreaSelector] Selection cancelled");
-        if (this.cancelCallback) {
-          this.cancelCallback();
-        }
+        const cb = this.cancelCallback;
         this.close();
+        if (cb) {
+          cb();
+        }
       }
     };
 
@@ -209,10 +216,24 @@ class AreaSelector {
 
     this.windows.forEach(({ window }) => {
       if (window && !window.isDestroyed()) {
-        window.close();
+        try {
+          // destroy() is immediate; close() can be delayed by compositor animations on Hyprland
+          window.destroy();
+        } catch (e) {
+          try { window.close(); } catch {}
+        }
       }
     });
     this.windows = [];
+  }
+
+  _ensureHyprlandFloating() {
+    // Hyprland tiles new windows by default. Force our overlay windows to float
+    // via windowrulev2 matching the HTML title. Best-effort, never throw.
+    if (!process.env.HYPRLAND_INSTANCE_SIGNATURE) return;
+    try {
+      execSync('hyprctl keyword windowrulev2 "float, title:^(Select Area)$" 2>/dev/null', { timeout: 800, stdio: "ignore" });
+    } catch {}
   }
 
   getSelection() {

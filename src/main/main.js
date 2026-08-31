@@ -213,6 +213,16 @@ function showAreaSelector() {
     return;
   }
 
+  // Clean up zombie references (windows destroyed but variable not nulled - can happen on Hyprland)
+  if (areaSelector && (!areaSelector.windows || areaSelector.windows.length === 0 || areaSelector.windows.every(w => !w.window || w.window.isDestroyed()))) {
+    console.log("[MAIN] Cleaning zombie areaSelector");
+    areaSelector = null;
+  }
+  if (recordingOverlay && (!recordingOverlay.borderWindow || recordingOverlay.borderWindow.isDestroyed()) && (!recordingOverlay.controlsWindow || recordingOverlay.controlsWindow.isDestroyed())) {
+    console.log("[MAIN] Cleaning zombie recordingOverlay");
+    recordingOverlay = null;
+  }
+
   if (
     areaSelector ||
     recordingOverlay ||
