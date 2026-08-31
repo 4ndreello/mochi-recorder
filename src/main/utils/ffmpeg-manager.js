@@ -40,7 +40,7 @@ class FFmpegManager extends EventEmitter {
     return null;
   }
 
-  async start(args) {
+  async start(args, options = {}) {
     return new Promise(async (resolve, reject) => {
       if (this.isRunning) {
         reject(new FFmpegStartupError(`[${this.label}] FFmpeg process already running`));
@@ -62,6 +62,14 @@ class FFmpegManager extends EventEmitter {
       this.process = spawn(this.ffmpegPath, args);
       this.isRunning = true;
       this.errorOutput = "";
+
+      // Optional upstream video stream (e.g. wf-recorder piping a
+      // matroska into ffmpeg's stdin). ffmpeg may exit before the
+      // upstream process on fatal errors; swallow the resulting EPIPE.
+      if (options.stdinStream) {
+        this.process.stdin.on("error", () => {});
+        options.stdinStream.pipe(this.process.stdin);
+      }
 
       let hasRejected = false;
       let hasResolved = false;
