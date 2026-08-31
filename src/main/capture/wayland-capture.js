@@ -30,21 +30,37 @@ class WaylandCapture extends BaseCapture {
    * option expects.
    */
   getOutputs() {
+    const isValidOutput = (o) =>
+      o &&
+      typeof o.name === "string" &&
+      Number.isFinite(o.x) &&
+      Number.isFinite(o.y) &&
+      Number.isFinite(o.width) &&
+      Number.isFinite(o.height) &&
+      o.width > 0 &&
+      o.height > 0;
+
     try {
       const raw = execSync("hyprctl -j monitors", {
         encoding: "utf-8",
         timeout: 2000,
         stdio: ["ignore", "pipe", "ignore"],
       });
-      return JSON.parse(raw).map((m) => ({
-        name: m.name,
-        x: m.x,
-        y: m.y,
-        width: m.width,
-        height: m.height,
-      }));
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) throw new Error("hyprctl output not an array");
+      const outputs = parsed
+        .map((m) => ({
+          name: m.name,
+          x: m.x,
+          y: m.y,
+          width: m.width,
+          height: m.height,
+        }))
+        .filter(isValidOutput);
+      if (outputs.length > 0) return outputs;
+      console.warn("[WaylandCapture] hyprctl returned no valid outputs, trying swaymsg");
     } catch (e) {
-      // Not running Hyprland
+      // Not running Hyprland or invalid output
     }
     try {
       const raw = execSync("swaymsg -t get_outputs -r", {
@@ -52,18 +68,24 @@ class WaylandCapture extends BaseCapture {
         timeout: 2000,
         stdio: ["ignore", "pipe", "ignore"],
       });
-      return JSON.parse(raw).map((o) => ({
-        name: o.name,
-        x: o.rect.x,
-        y: o.rect.y,
-        width: o.rect.width,
-        height: o.rect.height,
-      }));
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) throw new Error("swaymsg output not an array");
+      const outputs = parsed
+        .map((o) => ({
+          name: o.name,
+          x: o.rect.x,
+          y: o.rect.y,
+          width: o.rect.width,
+          height: o.rect.height,
+        }))
+        .filter(isValidOutput);
+      if (outputs.length > 0) return outputs;
     } catch (e) {
-      // Not running Sway
+      // Not running Sway or invalid output
     }
     return [];
   }
+
 
   findOutputForRegion(region) {
     const outputs = this.getOutputs();
@@ -95,12 +117,6 @@ class WaylandCapture extends BaseCapture {
     }
     return output;
   }
-
-  /**
-   * Builds the wf-recorder command line. Video is encoded losslessly
-   * (x264 crf=0 ultrafast) into a matroska stream on stdout; the final
-   * encode with the user's quality settings happens in FFmpeg.
-   */
   buildRecorderArgs(region) {
     const args = [
       "-D", // record continuously, not only when the screen changes
@@ -134,15 +150,26 @@ class WaylandCapture extends BaseCapture {
           Math.min(region.x + region.width, output.x + output.width) - x;
         height =
           Math.min(region.y + region.height, output.y + output.height) - y;
-
-        // x264 requires even dimensions
-        if (width % 2 !== 0) width -= 1;
-        if (height % 2 !== 0) height -= 1;
-
-        // Keep this.region in sync so metadata and cursor rendering see
-        // the actually recorded area
-        this.region = { x, y, width, height };
       }
+
+      // x264 requires even dimensions — must apply regardless of output
+      // (fallback path when compositor unknown would otherwise pass odd size)
+      if (width % 2 !== 0) width -= 1;
+      if (height % 2 !== 0) height -= 1;
+
+      if (width <= 0 || height <= 0) {
+        throw new FFmpegStartupError(
+          "Capture area is outside screen bounds or too small after clamping",
+          `region=${JSON.stringify(region)} output=${JSON.stringify(output)} clamped=${JSON.stringify({ x, y, width, height })}`
+        );
+      }
+
+      // Do NOT mutate this.region — that leaks clamped geometry to
+      // subsequent recordings and callers holding the original object.
+      // The effective rect is used only for this wf-recorder invocation.
+      // If metadata needs the actually recorded area, read the -g value
+      // or store it in this._effectiveRegion.
+      this._effectiveRegion = { x, y, width, height };
 
       args.push("-g", `${x},${y} ${width}x${height}`);
     }
@@ -167,6 +194,7 @@ class WaylandCapture extends BaseCapture {
   async startRecording(outputPath) {
     this.stopping = false;
     this.recorderError = null;
+    this._effectiveRegion = null;
 
     const args = this.buildRecorderArgs(this.region);
     console.log(
@@ -177,6 +205,8 @@ class WaylandCapture extends BaseCapture {
       stdio: ["ignore", "pipe", "pipe"],
     });
     this.videoInputStream = this.recorder.stdout;
+    // Prevent unhandled error on stdout if FFmpeg dies early
+    this.videoInputStream.on("error", () => {});
 
     let stderr = "";
     this.recorder.stderr.on("data", (data) => {
@@ -194,9 +224,13 @@ class WaylandCapture extends BaseCapture {
       );
       if (this.stopping) return;
       // Crashed or failed mid-recording: end the FFmpeg pipeline so the
-      // output file gets finalized
-      if (code !== 0 && code !== null) {
-        this.recorderError = `wf-recorder exited unexpectedly with code ${code}. ${stderr.slice(-500)}`;
+      // output file gets finalized. Must treat signal termination as failure
+      // (code is null when killed by signal).
+      const failedByCode = code !== 0 && code !== null;
+      const failedBySignal = signal !== null;
+      if (failedByCode || failedBySignal) {
+        const reason = signal ? `signal ${signal}` : `code ${code}`;
+        this.recorderError = `wf-recorder exited unexpectedly with ${reason}. ${stderr.slice(-500)}`;
         console.error(`[WaylandCapture] ${this.recorderError}`);
         if (this.ffmpegManager.isActive()) {
           this.ffmpegManager.kill();
@@ -204,13 +238,41 @@ class WaylandCapture extends BaseCapture {
       }
     });
 
+    // Fail-fast if wf-recorder binary missing or exits immediately.
+    // Without this, FFmpeg starts with `-i -` and hangs waiting for stdin
+    // until its 200ms fallback timeout; error only surfaced on stop.
+    const failFastPromise = new Promise((_, reject) => {
+      const onError = (err) => {
+        // error event already set recorderError above; ensure rejection
+        const msg = this.recorderError || `wf-recorder could not be started: ${err.message}`;
+        reject(new FFmpegStartupError(msg, stderr));
+      };
+      const onEarlyExit = (code, signal) => {
+        if (this.stopping) return;
+        const failedByCode = code !== 0 && code !== null;
+        const failedBySignal = signal !== null;
+        if (failedByCode || failedBySignal) {
+          const reason = signal ? `signal ${signal}` : `code ${code}`;
+          const msg = this.recorderError || `wf-recorder exited unexpectedly with ${reason}. ${stderr.slice(-500)}`;
+          reject(new FFmpegStartupError(msg, stderr));
+        }
+      };
+      this.recorder.once("error", onError);
+      this.recorder.once("exit", onEarlyExit);
+    });
+    // Prevent unhandled rejection if FFmpeg starts successfully and the
+    // early-exit listeners never fire or fire later (mid-recording crash
+    // is handled by the persistent 'on' listeners above).
+    failFastPromise.catch(() => {});
+
     try {
-      return await super.startRecording(outputPath);
+      await Promise.race([super.startRecording(outputPath), failFastPromise]);
     } catch (err) {
-      // FFmpeg failed to start: do not leave wf-recorder running
+      // FFmpeg failed to start or wf-recorder failed immediately: do not leave wf-recorder running
       this.stopRecorderProcess();
       throw err;
     }
+    return;
   }
 
   stopRecorderProcess() {
@@ -218,11 +280,12 @@ class WaylandCapture extends BaseCapture {
     const proc = this.recorder;
     this.recorder = null;
     this.videoInputStream = null;
+    this._effectiveRegion = null;
     if (proc.exitCode !== null || proc.killed) return;
-    proc.kill("SIGINT");
+    try { proc.kill("SIGINT"); } catch {}
     setTimeout(() => {
       if (proc.exitCode === null) {
-        proc.kill("SIGKILL");
+        try { proc.kill("SIGKILL"); } catch {}
       }
     }, 3000);
   }
@@ -238,27 +301,60 @@ class WaylandCapture extends BaseCapture {
 
     // SIGINT makes wf-recorder finalize the matroska stream; FFmpeg then
     // reaches EOF on its video input and finalizes the output file.
+    // Must await actual exit, not just a timeout, otherwise the matroska
+    // footer is truncated and a zombie holds the pipe.
     const recorder = this.recorder;
-    if (recorder && recorder.exitCode === null) {
+    if (recorder && recorder.exitCode === null && !recorder.killed) {
       await new Promise((resolve) => {
-        recorder.once("exit", resolve);
-        recorder.kill("SIGINT");
-        setTimeout(() => {
+        let settled = false;
+        const finish = () => {
+          if (!settled) {
+            settled = true;
+            resolve();
+          }
+        };
+        recorder.once("exit", finish);
+        try {
+          recorder.kill("SIGINT");
+        } catch {
+          finish();
+          return;
+        }
+        const t1 = setTimeout(() => {
           if (recorder.exitCode === null) {
             console.warn(
               "[WaylandCapture] wf-recorder did not exit after SIGINT, sending SIGTERM"
             );
-            recorder.kill("SIGTERM");
+            try {
+              recorder.kill("SIGTERM");
+            } catch {}
+            const t2 = setTimeout(() => {
+              if (recorder.exitCode === null) {
+                console.warn(
+                  "[WaylandCapture] wf-recorder did not exit after SIGTERM, sending SIGKILL"
+                );
+                try {
+                  recorder.kill("SIGKILL");
+                } catch {}
+              }
+              // Give SIGKILL a moment to reap, then finish even if still not exited
+              setTimeout(finish, 1000);
+            }, 2000);
+            recorder.once("exit", () => clearTimeout(t2));
           }
-          setTimeout(resolve, 2000);
         }, 3000);
+        recorder.once("exit", () => clearTimeout(t1));
+        // Absolute safety fallback — never hang stopRecording forever
+        setTimeout(finish, 8000);
       });
     }
     this.recorder = null;
     this.videoInputStream = null;
+    this._effectiveRegion = null;
 
     return super.stopRecording();
   }
+
 }
 
 module.exports = WaylandCapture;

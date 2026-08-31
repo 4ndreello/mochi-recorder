@@ -41,6 +41,10 @@ class FFmpegManager extends EventEmitter {
   }
 
   async start(args, options = {}) {
+    // Defensive: allow null/undefined options (e.g. start(args, null))
+    if (!options || typeof options !== "object") {
+      options = {};
+    }
     return new Promise(async (resolve, reject) => {
       if (this.isRunning) {
         reject(new FFmpegStartupError(`[${this.label}] FFmpeg process already running`));
@@ -62,14 +66,62 @@ class FFmpegManager extends EventEmitter {
       this.process = spawn(this.ffmpegPath, args);
       this.isRunning = true;
       this.errorOutput = "";
+      this._stdinStream = null;
+      this._stdinErrorHandler = null;
+      this._srcErrorHandler = null;
+      this._cleanupStdinPipe = null;
 
       // Optional upstream video stream (e.g. wf-recorder piping a
       // matroska into ffmpeg's stdin). ffmpeg may exit before the
-      // upstream process on fatal errors; swallow the resulting EPIPE.
-      if (options.stdinStream) {
-        this.process.stdin.on("error", () => {});
-        options.stdinStream.pipe(this.process.stdin);
+      // upstream process on fatal errors; unpipe to avoid orphaned
+      // writer and swallow only EPIPE on the destination.
+      const stdinStream = options.stdinStream;
+      if (stdinStream) {
+        if (typeof stdinStream.pipe !== "function" || stdinStream.destroyed) {
+          this.isRunning = false;
+          this.process = null;
+          reject(new FFmpegStartupError(`[${this.label}] Invalid stdinStream: not a readable stream`));
+          return;
+        }
+        const stdinErrorHandler = (err) => {
+          if (err && err.code === "EPIPE") return;
+          console.error(`[MAIN] [${this.label}] FFmpeg stdin error:`, err);
+          this.emit("error", err);
+        };
+        const srcErrorHandler = (err) => {
+          if (err && err.code === "EPIPE") return;
+          console.error(`[MAIN] [${this.label}] stdinStream error:`, err);
+        };
+        this._stdinStream = stdinStream;
+        this._stdinErrorHandler = stdinErrorHandler;
+        this._srcErrorHandler = srcErrorHandler;
+
+        this.process.stdin.on("error", stdinErrorHandler);
+        stdinStream.on("error", srcErrorHandler);
+        stdinStream.pipe(this.process.stdin);
+
+        const cleanupPipe = () => {
+          try {
+            if (this._stdinStream) {
+              this._stdinStream.unpipe(this.process?.stdin);
+            }
+          } catch {}
+          try {
+            this._stdinStream?.removeListener("error", srcErrorHandler);
+          } catch {}
+          try {
+            this.process?.stdin?.removeListener("error", stdinErrorHandler);
+          } catch {}
+          this._stdinStream = null;
+          this._stdinErrorHandler = null;
+          this._srcErrorHandler = null;
+          this._cleanupStdinPipe = null;
+        };
+        this._cleanupStdinPipe = cleanupPipe;
+        this.process.once("close", cleanupPipe);
+        this.process.once("exit", cleanupPipe);
       }
+
 
       let hasRejected = false;
       let hasResolved = false;
@@ -175,6 +227,10 @@ class FFmpegManager extends EventEmitter {
 
     return new Promise((resolve) => {
       if (!this.process || !this.isRunning) {
+        // Even if no process, ensure any piped stream is cleaned up
+        if (this._cleanupStdinPipe) {
+          try { this._cleanupStdinPipe(); } catch {}
+        }
         console.log(`[MAIN] [${this.label}] No FFmpeg process to stop`);
         resolve();
         return;
@@ -185,6 +241,9 @@ class FFmpegManager extends EventEmitter {
       const cleanup = () => {
         if (!resolved) {
           resolved = true;
+          if (this._cleanupStdinPipe) {
+            try { this._cleanupStdinPipe(); } catch {}
+          }
           this.isRunning = false;
           this.process = null;
           resolve();
@@ -236,13 +295,22 @@ class FFmpegManager extends EventEmitter {
   }
 
   kill() {
+    if (this._cleanupStdinPipe) {
+      try { this._cleanupStdinPipe(); } catch {}
+    }
     if (this.process) {
       console.warn(`[MAIN] [${this.label}] Force killing FFmpeg process`);
-      this.process.kill("SIGKILL");
+      try { this.process.kill("SIGKILL"); } catch {}
       this.isRunning = false;
       this.process = null;
     }
+    // Ensure stream references cleared even if process already gone
+    this._stdinStream = null;
+    this._stdinErrorHandler = null;
+    this._srcErrorHandler = null;
+    this._cleanupStdinPipe = null;
   }
+
 
   async run(args) {
     return new Promise(async (resolve, reject) => {

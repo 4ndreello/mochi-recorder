@@ -103,7 +103,8 @@ class AreaSelector {
         // window.getBounds() does not reflect the requested position.
         // Use the display bounds the window was created for instead.
         const actualBounds =
-          sourceWindow.targetBounds || sourceWindow.window.getBounds();
+          sourceWindow.targetBounds ?? sourceWindow.window.getBounds();
+
 
         // Convert relative coordinates to absolute
         const absoluteSelection = {
